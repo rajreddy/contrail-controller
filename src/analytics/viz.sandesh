@@ -59,7 +59,7 @@ const string XMPP_PEER_INFO_TABLE   = "ObjectXmppPeerInfo"
 const string ROUTING_INSTANCE_TABLE = "ObjectRoutingInstance"
 const string XMPP_CONNECTION_TABLE  = "ObjectXmppConnection"
 const string COLLECTOR_INFO_TABLE   = "ObjectCollectorInfo"
-const string DATABASE_INFO_TABLE   = "ObjectDatabaseInfo"
+const string DATABASE_INFO_TABLE    = "ObjectDatabaseInfo"
 const string GENERATOR_INFO_TABLE   = "ObjectGeneratorInfo"
 const string CONFIG_NODE_TABLE      = "ObjectConfigNode"
 const string SERVICE_CHAIN          = "ServiceChain"
@@ -71,6 +71,7 @@ const string POOL_TABLE             = "ObjectPoolTable"
 const string OSD_TABLE              = "ObjectOsdTable"
 const string DISK_TABLE             = "ObjectDiskTable"
 const string SERVER_TABLE             = "ObjectServerTable"
+const string PROUTER_TABLE          = "ObjectPRouter"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -94,6 +95,7 @@ const string STORAGE_POOL_DISPLAY_NAME     = "Storage Pool"
 const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
 const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
 const string SERVER_TABLE_DISPLAY_NAME       = "Server Table Info"
+const string PROUTER_DISPLAY_NAME          = "pRouter"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -237,6 +239,7 @@ const map<string, string> UVE_MAP = {
     "storage-osd" : OSD_TABLE,
     "storage-disk" : DISK_TABLE,
     "server" : SERVER_TABLE,
+    "prouter" : PROUTER_TABLE,
 }
 
 struct objtable_info {
@@ -264,6 +267,10 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     VROUTER_TABLE          : {
         'objtable_display_name' : VROUTER_DISPLAY_NAME
         'log_query_name'        : "vrouter"
+    }
+    PROUTER_TABLE          : {
+        'objtable_display_name' : PROUTER_DISPLAY_NAME
+        'log_query_name'        : "prouter"
     }
     BGP_PEER_TABLE         : {
         'objtable_display_name' : BGP_PEER_DISPLAY_NAME
