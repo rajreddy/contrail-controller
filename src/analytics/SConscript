@@ -225,3 +225,8 @@ AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
 AnalyticsEnv.Alias('install', AnalyticsEnv.Install(
             AnalyticsEnv['INSTALL_CONF'] + 
             '/supervisord_analytics_files', 'contrail-collector.ini'))
+
+AnalyticsEnv.SConscript(dirs=['contrail-snmp-collector'],
+        exports='AnalyticsEnv',
+        variant_dir=BuildEnv['TOP'] + '/contrail-snmp-collector',
+        duplicate=1)
