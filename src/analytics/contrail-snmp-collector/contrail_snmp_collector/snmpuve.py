@@ -15,7 +15,7 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
 class SnmpUve(object):
     def __init__(self, conf):
         self._conf = conf
-        module = Module.CONTRAIL_SNMP_SCANNER
+        module = Module.CONTRAIL_SNMP_COLLECTOR
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
         self._node_type_name = NodeTypeNames[node_type]
