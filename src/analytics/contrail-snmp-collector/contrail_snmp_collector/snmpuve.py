@@ -59,8 +59,10 @@ class SnmpUve(object):
             data['ifTable'] = map(lambda x: IfTable(**x),
                     data['ifTable'])
         if 'lldpTable' in data:
-            data['lldpTable']['lldpLocalSystemData'][
-                'lldpLocManAddrEntry'] = LldpLocManAddrEntry(
+            if 'lldpLocManAddrEntry' in data['lldpTable'][
+              'lldpLocalSystemData']:
+                data['lldpTable']['lldpLocalSystemData'][
+                    'lldpLocManAddrEntry'] = LldpLocManAddrEntry(
                         **data['lldpTable']['lldpLocalSystemData'][
                         'lldpLocManAddrEntry'])
             data['lldpTable']['lldpLocalSystemData'][
