@@ -5,6 +5,7 @@
 #include "db_handler.h"
 #include "ipfix_collector.h"
 #include "ipfix_col.h"
+#include "uflow_constants.h"
 #include "uflow_types.h"
 
 #include <boost/assign/list_of.hpp>
@@ -141,7 +142,8 @@ int IpfixCollector::ExportDrecord(
     uint64_t tm = UTCTimestampUsec();
     std::vector<UFlowSample> samples;
     UFlowSample sample;
-    sample.set_flowtype("IPFIX");
+    sample.set_flowtype(g_uflow_constants.FlowTypeName.find(
+                            FlowType::IPFIX)->second);
     for (int i=0; i<t->ipfixt->nfields; i++ ) {
         const char * kbuf = t->ipfixt->fields[i].elem->ft->name;
         char tmpbuf[128];
