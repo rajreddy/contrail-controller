@@ -230,3 +230,8 @@ AnalyticsEnv.SConscript(dirs=['contrail-snmp-collector'],
         exports='AnalyticsEnv',
         variant_dir=BuildEnv['TOP'] + '/contrail-snmp-collector',
         duplicate=1)
+
+AnalyticsEnv.SConscript(dirs=['contrail-topology'],
+        exports='AnalyticsEnv',
+        variant_dir=BuildEnv['TOP'] + '/contrail-topology',
+        duplicate=1)
