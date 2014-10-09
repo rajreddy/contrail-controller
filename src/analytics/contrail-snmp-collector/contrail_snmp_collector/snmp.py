@@ -222,7 +222,10 @@ class SnmpSession(netsnmp.Session):
     def TABLES(cls):
         return cls.table_list
 
-    def __init__(self, device={}, tables=None):
+    def __init__(self, netdev):
+        self.netdev = netdev
+        device = netdev.snmp_cfg()
+        tables = netdev.get_mibs()
         super(SnmpSession, self).__init__(**device)
         if tables:
             self.tables = filter(lambda x: x in self.table_list, tables)
@@ -241,6 +244,13 @@ class SnmpSession(netsnmp.Session):
         return o[0].lower() + o[1:], self.snmpTables[o].py_obj()
 
     def get_sysname(self):
+        name = self.netdev.get_snmp_name()
+        if name is None:
+            name = self.get_sysname_by_snmp()
+            self.netdev.set_snmp_name(name)
+        return name
+
+    def get_sysname_by_snmp(self):
         if 'LldpTable' in self.snmpTables:
             return self.snmpTables['LldpTable'].get_name()
         t = LldpLocSysNameTable(self)
