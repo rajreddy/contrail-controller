@@ -2,6 +2,8 @@ from snmp import SnmpSession
 from snmpuve import SnmpUve
 import time
 import gevent
+import os, json, sys
+from tempfile import NamedTemporaryFile
 
 class Controller(object):
     def __init__(self, config):
@@ -21,18 +23,28 @@ class Controller(object):
         return self._sleep_time
 
     def task(self, netdev):
-        ses = SnmpSession(netdev.snmp_cfg(), netdev.get_mibs())
-        ses.scan_device(self.switcher)
-        self.uve.send(ses.get_data())
-
-    def switcher(self):
-        gevent.sleep(0)
+        f = NamedTemporaryFile(mode='w+', delete=False)
+        pid = os.fork()
+        if pid == 0:
+            ses = SnmpSession(netdev)
+            ses.scan_device()
+            json.dump(ses.get_data(), f)
+            f.flush()
+            f.close()
+            sys.exit(0)
+        pid, status = os.waitpid(pid, 0)
+        f.seek(0, 0)
+        data = json.load(f)
+        self.uve.send(data)
+        f.close()
+        os.unlink(f.name)
+        if netdev.get_snmp_name() is None:
+            netdev.set_snmp_name(data['name'])
+            self.uve.send_flow_uve({'name': netdev.get_snmp_name(),
+                'flow_export_source_ip': netdev.get_flow_export_source_ip()})
 
     def run(self):
         while self._keep_running:
-            t = []
             for netdev in self._config.devices():
-                t.append(gevent.spawn(self.task, netdev))
-            gevent.joinall(t)
-            del t
-            time.sleep(self._sleep_time)
+                self.task(netdev)
+            gevent.sleep(self._sleep_time)
