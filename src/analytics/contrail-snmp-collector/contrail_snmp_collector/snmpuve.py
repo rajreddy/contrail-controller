@@ -6,7 +6,7 @@ from gen_py.prouter.ttypes import ArpTable, IfTable, \
          LldpLocalSystemData, LldpRemOrgDefInfoTable, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
-         LldpTable, PRouterEntry, PRouterUVE
+         LldpTable, PRouterEntry, PRouterUVE, PRouterFlowEntry, PRouterFlowUVE
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
      ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
@@ -40,6 +40,10 @@ class SnmpUve(object):
         #    NodeStatusUVE, NodeStatus)
         #
         # generator_init()
+
+    def send_flow_uve(self, data):
+        if data['name']:
+            PRouterFlowUVE(data=PRouterFlowEntry(**data)).send()
 
     def send(self, data):
         uve = self.make_uve(data)

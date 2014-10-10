@@ -128,3 +128,13 @@ struct PRouterEntry {
 uve sandesh PRouterUVE {
     1: PRouterEntry data
 }
+
+struct PRouterFlowEntry {
+    1: string name (key="ObjectPRouter")
+    2: optional bool deleted
+    3: optional string flow_export_source_ip
+}
+
+uve sandesh PRouterFlowUVE {
+    1: PRouterFlowEntry data
+}

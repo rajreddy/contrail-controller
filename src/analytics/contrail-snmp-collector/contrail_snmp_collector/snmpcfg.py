@@ -133,13 +133,22 @@ Mibs = LldpTable, ArpTable
             devcfg.read([self._args.file])
             for dev in devcfg.sections():
                 nd = dict(devcfg.items(dev))
-                mibs = []
-                if 'Mibs' in nd:
-                    mibs = self._mklist(nd['Mibs'])
-                    del nd['Mibs']
-                self._devices.append(DeviceConfig(dev, nd, mibs))
-            
+                mibs = self._mklist(self._get_and_remove_key(nd, 
+                            'Mibs', []))
+                flow_export_source_ip = self._get_and_remove_key(nd, 
+                        'FlowExportSourceIp')
+                self._devices.append(DeviceConfig(dev, nd, mibs,
+                            flow_export_source_ip))
         self._args.config_sections = config
+
+    def _get_and_remove_key(self, data_dict, key, default=None):
+        val = default
+        if key in data_dict:
+            val = data_dict[key]
+            del data_dict[key]
+        return val
+
+
 
     def _pat(self):
         if self.__pat is None:
@@ -147,7 +156,9 @@ Mibs = LldpTable, ArpTable
         return self.__pat
 
     def _mklist(self, s):
-        return self._pat().split(s)
+        if isinstance(s, str):
+            return self._pat().split(s)
+        return s
 
     def devices(self):
         for d in self._devices:
