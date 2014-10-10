@@ -1,4 +1,4 @@
-import pprint, socket
+import pprint, socket, copy
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from gen_py.prouter.ttypes import ArpTable, IfTable, \
@@ -38,8 +38,29 @@ class SnmpUve(object):
         #    self._instance_id,
         #    staticmethod(ConnectionState.get_process_state_cb),
         #    NodeStatusUVE, NodeStatus)
-        #
-        # generator_init()
+
+        self.if_stat = {}
+
+    def get_diff(self, data):
+        if data['name'] not in self.if_stat:
+            self.if_stat[data['name']] = {}
+        diffs = []
+        for ife in data['ifTable']:
+            if ife['ifDescr'] in self.if_stat[data['name']]:
+                diffs.append(self.diff(self.if_stat[data['name']][
+                            ife['ifDescr']], ife))
+            self.if_stat[data['name']][ife['ifDescr']] = copy.copy(ife)
+        data['ifStats'] = map(lambda x: IfTable(**x), diffs)
+
+    def diff(self, old, new):
+        d = {}
+        for k in new:
+            if isinstance(new[k], int) and k in old and k not in ('ifIndex',
+                    'ifLastChange', 'ifMtu'):
+                d[k] = new[k] - old[k]
+            else:
+                d[k] = new[k]
+        return d
 
     def send_flow_uve(self, data):
         if data['name']:
@@ -55,11 +76,12 @@ class SnmpUve(object):
                 globals(), locals())
 
     def make_uve(self, data):
-        pprint.pprint(data)
+        print 'Building UVE:', data['name']
         if 'arpTable' in data:
             data['arpTable'] = map(lambda x: ArpTable(**x),
                     data['arpTable'])
         if 'ifTable' in data:
+            self.get_diff(data)
             data['ifTable'] = map(lambda x: IfTable(**x),
                     data['ifTable'])
         if 'lldpTable' in data:
@@ -110,6 +132,6 @@ class SnmpUve(object):
         return PRouterUVE(data=PRouterEntry(**data))
 
     def send_uve(self, uve):
-        print 'Sending UVE:', uve
+        print 'Sending UVE:', uve.data.name
         uve.send()
 
