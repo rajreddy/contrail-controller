@@ -17,6 +17,8 @@ from gen.resource_common import *
 from gen.resource_server import *
 from pprint import pformat
 import uuid
+from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+import netaddr
 
 class GlobalSystemConfigServer(GlobalSystemConfigServerGen):
     @classmethod
@@ -96,9 +98,9 @@ class FloatingIpServer(FloatingIpServerGen):
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['floating_ip_address'] = fip_addr
-        print 'AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' \
+        db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s, tenant=%s, askip=%s' \
             % (obj_dict['floating_ip_address'], vn_fq_name, tenant_name,
-               req_ip)
+               req_ip), level=SandeshLevel.SYS_DEBUG)
         return True, ""
     # end http_post_collection
 
@@ -106,7 +108,9 @@ class FloatingIpServer(FloatingIpServerGen):
     def http_post_collection_fail(cls, tenant_name, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
-        print 'AddrMgmt: free FIP %s for vn=%s tenant=%s, on post fail' % (fip_addr, vn_fq_name, tenant_name)
+        db_conn.config_log('AddrMgmt: free FIP %s for vn=%s tenant=%s, on post fail'
+                           % (fip_addr, vn_fq_name, tenant_name),
+                           level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
         return True, ""
     # end http_post_collection_fail
@@ -115,7 +119,9 @@ class FloatingIpServer(FloatingIpServerGen):
     def http_delete(cls, id, obj_dict, db_conn):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
-        print 'AddrMgmt: free FIP %s for vn=%s' % (fip_addr, vn_fq_name)
+        db_conn.config_log('AddrMgmt: free FIP %s for vn=%s'
+                           % (fip_addr, vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
         return True, ""
     # end http_delete
@@ -130,8 +136,9 @@ class FloatingIpServer(FloatingIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure' \
-            % (obj_dict['floating_ip_address'], vn_fq_name)
+        db_conn.config_log('AddrMgmt: alloc %s FIP for vn=%s to recover DELETE failure'
+                           % (obj_dict['floating_ip_address'], vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
         return True, ""
     # end http_delete_fail
 
@@ -217,9 +224,10 @@ class InstanceIpServer(InstanceIpServerGen):
         except Exception as e:
             return (False, (500, str(e)))
         obj_dict['instance_ip_address'] = ip_addr
-        print 'AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s' \
+        db_conn.config_log('AddrMgmt: alloc %s for vn=%s, tenant=%s, askip=%s'
             % (obj_dict['instance_ip_address'],
-               vn_fq_name, tenant_name, req_ip)
+               vn_fq_name, tenant_name, req_ip),
+            level=SandeshLevel.SYS_DEBUG)
         return True, ""
     # end http_post_collection
 
@@ -232,7 +240,9 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         ip_addr = obj_dict['instance_ip_address']
-        print 'AddrMgmt: free IP %s, vn=%s tenant=%s on post fail' % (ip_addr, vn_fq_name, tenant_name)
+        db_conn.config_log('AddrMgmt: free IP %s, vn=%s tenant=%s on post fail'
+                           % (ip_addr, vn_fq_name, tenant_name),
+                           level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
         return True, ""
     # end http_post_collection_fail
@@ -246,7 +256,9 @@ class InstanceIpServer(InstanceIpServerGen):
             return True,  ""
 
         ip_addr = obj_dict['instance_ip_address']
-        print 'AddrMgmt: free IP %s, vn=%s' % (ip_addr, vn_fq_name)
+        db_conn.config_log('AddrMgmt: free IP %s, vn=%s'
+                           % (ip_addr, vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
         cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
         return True, ""
     # end http_delete
@@ -266,8 +278,10 @@ class InstanceIpServer(InstanceIpServerGen):
             cls.addr_mgmt.ip_alloc_req(vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (500, str(e)))
-        print 'AddrMgmt: alloc %s for vn=%s to recover DELETE failure' \
-            % (obj_dict['instance_ip_address'], vn_fq_name)
+        db_conn.config_log('AddrMgmt: alloc %s for vn=%s to recover DELETE failure'
+                           % (obj_dict['instance_ip_address'], vn_fq_name),
+                           level=SandeshLevel.SYS_DEBUG)
+
         return True, ""
     # end http_delete_fail
 
@@ -386,11 +400,21 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if not rt_dict:
             return (True, '')
         for rt in rt_dict.get('route_target', []):
-            (_, asn, target) = rt.split(':')
-            if asn == global_asn and int(target) >= cfgm_common.BGP_RTGT_MIN_ID:
+            try:
+                (prefix, asn, target) = rt.split(':')
+                if prefix != 'target':
+                    raise ValueError()
+                target = int(target)
+                if not asn.isdigit():
+                    netaddr.IPAddress(asn)
+            except (ValueError, netaddr.core.AddrFormatError) as e:
+                 return (False, "Route target must be of the format "
+                         "'target:<asn>:<number>' or 'target:<ip>:number'")
+            if asn == global_asn and target >= cfgm_common.BGP_RTGT_MIN_ID:
                  return (False, "Configured route target must use ASN that is "
                          "different from global ASN or route target value must"
                          " be less than %d" % cfgm_common.BGP_RTGT_MIN_ID)
+
         return (True, '')
     # end _check_route_targets
 
@@ -526,15 +550,17 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
         ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, subnet_name)
                    for i in range(count)]
-        print 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
+        msg = 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
+        cls.addr_mgmt.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         return {'ip_addr': ip_list}
     # end ip_alloc
 
     @classmethod
     def ip_free(cls, vn_fq_name, subnet_name, ip_list):
-        print 'AddrMgmt: release IP %s for vn=%s, subnet=%s' \
+        msg = 'AddrMgmt: release IP %s for vn=%s, subnet=%s' \
             % (ip_list, vn_fq_name, subnet_name if subnet_name else '')
+        cls.addr_mgmt.config_log(msg, level=SandeshLevel.SYS_DEBUG)
         for ip_addr in ip_list:
             cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, subnet_name)
     # end ip_free
@@ -983,4 +1009,4 @@ class NetworkPolicyServer(NetworkPolicyServerGen):
             return
     # end _check_policy
 
-# end class VirtualNetworkServer
+# end class NetworkPolicyServer
