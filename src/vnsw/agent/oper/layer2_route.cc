@@ -394,7 +394,12 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
     agent->nexthop_table()->Process(nh_req);
     NextHop *nh = static_cast<NextHop *>(agent->nexthop_table()->
                                  FindActiveEntry(nh_req.key.get()));
-    assert(nh);
+    //NH may not get added if VRF is marked for delete. Route may be in
+    //transition of getting deleted, skip NH modification.
+    if (!nh) {
+        return false;
+    }
+
     bool ret = MulticastRoute::CopyPathParameters(agent,
                                       multicast_peer_path,
                                       (local_peer_path ? local_peer_path->
@@ -410,15 +415,16 @@ bool Layer2RouteEntry::ReComputeMulticastPaths(AgentPath *path, bool del) {
                                       nh);
 
     //Bake all MPLS label
-    if (fabric_peer_path && (old_fabric_mpls_label !=
-                             fabric_peer_path->label())) {
+    if (fabric_peer_path) {
         //Add new label
         MplsLabel::CreateMcastLabelReq(fabric_peer_path->label(),
                                        Composite::L2COMP,
                                        component_nh_list,
                                        vrf()->GetName());
         //Delete Old label, in case label has changed for same peer.
-        MplsLabel::DeleteReq(old_fabric_mpls_label);
+        if (old_fabric_mpls_label != fabric_peer_path->label()) {
+            MplsLabel::DeleteReq(old_fabric_mpls_label);
+        }
     }
     if (evpn_peer_path) {
         MplsLabel::CreateMcastLabelReq(evpn_peer_path->label(),
