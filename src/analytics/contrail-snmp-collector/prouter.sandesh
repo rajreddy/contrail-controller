@@ -11,28 +11,28 @@ struct ArpTable {
 }
 
 struct IfTable {
-    1:  i32 ifAdminStatus
+    1:  u64 ifAdminStatus
     2:  string ifDescr
-    3:  i64 ifInDiscards
-    4:  i64 ifInErrors
-    5:  i64 ifInNUcastPkts
-    6:  i64 ifInOctets
-    7:  i64 ifInUcastPkts
-    8:  i64 ifInUnknownProtos
-    9:  i32 ifIndex
-    10: i32 ifLastChange
-    11: i32 ifMtu
-    12: i32 ifOperStatus
-    13: i64 ifOutDiscards
-    14: i64 ifOutErrors
-    15: i64 ifOutNUcastPkts
-    16: i64 ifOutOctets
-    17: i64 ifOutQLen
-    18: i64 ifOutUcastPkts
+    3:  u64 ifInDiscards
+    4:  u64 ifInErrors
+    5:  u64 ifInNUcastPkts
+    6:  u64 ifInOctets
+    7:  u64 ifInUcastPkts
+    8:  u64 ifInUnknownProtos
+    9:  u64 ifIndex
+    10: u64 ifLastChange
+    11: u64 ifMtu
+    12: u64 ifOperStatus
+    13: u64 ifOutDiscards
+    14: u64 ifOutErrors
+    15: u64 ifOutNUcastPkts
+    16: u64 ifOutOctets
+    17: u64 ifOutQLen
+    18: u64 ifOutUcastPkts
     19: string ifPhysAddress
     20: string ifSpecific
-    21: i32 ifSpeed
-    22: i32 ifType
+    21: u64 ifSpeed
+    22: u64 ifType
 }
 
 enum LldpSystemCapabilitiesMap {
@@ -123,6 +123,7 @@ struct PRouterEntry {
     3: optional LldpTable lldpTable
     4: optional list<ArpTable> arpTable
     5: optional list<IfTable> ifTable
+    6: optional list<IfTable> ifStats (tags="name:.ifIndex")
 }
 
 uve sandesh PRouterUVE {
