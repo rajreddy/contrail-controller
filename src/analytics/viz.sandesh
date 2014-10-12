@@ -110,6 +110,8 @@ const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
+const string OVERLAY_TO_UNDERLAY_FLOW_MAP = "OverlayToUnderlayFlowMap"
+
 const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTagV3"
 const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64TagV3"
 const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTagV3"
@@ -201,6 +203,82 @@ const list<string> FlowRecordNames = [
     "underlay_source_port",
     "invalid",
 ]
+
+// UFlowData fields
+const string UFLOW_PROUTER = "name";
+const string UFLOW_PIFINDEX = "flow.pifindex";
+const string UFLOW_SIP = "flow.sip";
+const string UFLOW_DIP = "flow.dip";
+const string UFLOW_SPORT = "flow.sport";
+const string UFLOW_DPORT = "flow.dport";
+const string UFLOW_PROTOCOL = "flow.protocol";
+const string UFLOW_VLAN = "flow.vlan";
+const string UFLOW_FLOWTYPE = "flow.flowtype";
+const string UFLOW_OTHERINFO = "flow.otherinfo";
+
+// OverlayToUnderlayFlowMap fields
+const string O_SVN = "o_svn";
+const string O_SIP = "o_sip";
+const string O_DVN = "o_dvn";
+const string O_DIP = "o_dip";
+const string O_SPORT = "o_sport";
+const string O_DPORT = "o_dport";
+const string O_PROTOCOL = "o_protocol";
+const string O_VROUTER = "o_vrouter";
+const string U_PROUTER = "u_prouter";
+const string U_PIFINDEX = "u_pifindex";
+const string U_VLAN = "u_vlan";
+const string U_SIP = "u_sip";
+const string U_DIP = "u_dip";
+const string U_SPORT = "u_sport";
+const string U_DPORT = "u_dport";
+const string U_PROTOCOL = "u_protocol";
+const string U_FLOWTYPE = "u_flowtype";
+const string U_OTHERINFO = "u_otherinfo"
+
+const map<string, string> OverlayToFlowRecordTableFields = {
+    O_SVN : "sourcevn",
+    O_SIP : "sourceip",
+    O_DVN : "destvn",
+    O_DIP : "destip",
+    O_SPORT : "sport",
+    O_DPORT : "dport",
+    O_PROTOCOL : "protocol",
+    O_VROUTER : "vrouter"
+}
+
+const map<string, string> FlowRecordToUFlowDataFields = {
+    "vrouter_ip" : UFLOW_SIP,
+    "other_vrouter_ip" : UFLOW_DIP,
+    "underlay_source_port" : UFLOW_SPORT,
+    "underlay_proto" : UFLOW_PROTOCOL
+}
+
+const map<string, string> UnderlayToUFlowDataFields = {
+    U_PROUTER : UFLOW_PROUTER,
+    U_PIFINDEX : UFLOW_PIFINDEX,
+    U_SIP : UFLOW_SIP,
+    U_DIP : UFLOW_DIP,
+    U_SPORT : UFLOW_SPORT,
+    U_DPORT : UFLOW_DPORT,
+    U_PROTOCOL : UFLOW_PROTOCOL,
+    U_VLAN : UFLOW_VLAN,
+    U_FLOWTYPE : UFLOW_FLOWTYPE,
+    U_OTHERINFO : UFLOW_OTHERINFO
+}
+
+const map<string, string> UFlowDataToUnderlayFields = {
+    UFLOW_PROUTER : U_PROUTER,
+    UFLOW_PIFINDEX : U_PIFINDEX,
+    UFLOW_SIP : U_SIP,
+    UFLOW_DIP : U_DIP,
+    UFLOW_SPORT : U_SPORT,
+    UFLOW_DPORT : U_DPORT,
+    UFLOW_PROTOCOL : U_PROTOCOL,
+    UFLOW_VLAN : U_VLAN,
+    UFLOW_FLOWTYPE : U_FLOWTYPE,
+    UFLOW_OTHERINFO : U_OTHERINFO
+}
 
 // Flow Table Query Strings
 const string FLOW_TABLE_UUID       = "UuidKey"
@@ -340,6 +418,8 @@ struct query_column
     1: string name;
     2: string datatype;
     3: bool index;
+    4: bool select;
+    5: list<string> suffixes;
 }
 
 struct query_schema_type
@@ -650,16 +730,16 @@ const list<stat_table> _STAT_TABLES  = [
       'stat_attr' : 'flow',
       'obj_table' : 'NONE',
       'attributes': [
-          { 'name' : 'name', 'datatype' : 'string','index' : true, 'suffixes': ['flow.pifindex']},
-          { 'name' : 'flow.pifindex', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'flow.sport', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'flow.dport', 'datatype' : 'int', 'index' : false},
-          { 'name' : 'flow.protocol', 'datatype' : 'int', 'index' : true, 'suffixes': ['flow.sport', 'flow.dport']},
-          { 'name' : 'flow.sip', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'flow.dip', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'flow.vlan', 'datatype' : 'string', 'index' : true},
-          { 'name' : 'flow.flowtype', 'datatype' : 'string', 'index' : false},
-          { 'name' : 'flow.otherinfo', 'datatype' : 'string', 'index' : false},
+          { 'name' : UFLOW_PROUTER, 'datatype' : 'string', 'index' : true, 'suffixes': [ UFLOW_PIFINDEX ] },
+          { 'name' : UFLOW_PIFINDEX, 'datatype' : 'int', 'index' : false },
+          { 'name' : UFLOW_SPORT, 'datatype' : 'int', 'index' : false },
+          { 'name' : UFLOW_DPORT, 'datatype' : 'int', 'index' : false },
+          { 'name' : UFLOW_PROTOCOL, 'datatype' : 'int', 'index' : true, 'suffixes': [ UFLOW_SPORT, UFLOW_DPORT ] },
+          { 'name' : UFLOW_SIP, 'datatype' : 'string', 'index' : true },
+          { 'name' : UFLOW_DIP, 'datatype' : 'string', 'index' : true },
+          { 'name' : UFLOW_VLAN, 'datatype' : 'string', 'index' : true },
+          { 'name' : UFLOW_FLOWTYPE, 'datatype' : 'string', 'index' : false },
+          { 'name' : UFLOW_OTHERINFO, 'datatype' : 'string', 'index' : false },
         ]
     },
   
@@ -710,8 +790,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'action', 'datatype' : 'string', 'index' : false },
                { 'name' : 'sg_rule_uuid', 'datatype' : 'uuid', 'index' : false },
                { 'name' : 'nw_ace_uuid', 'datatype' : 'uuid', 'index' : false },
-               { 'name' : 'vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
-               { 'name' : 'other_vrouter_ip', 'datatype' : 'ipv4', 'index' : false },
+               { 'name' : 'vrouter_ip', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'other_vrouter_ip', 'datatype' : 'string', 'index' : false },
                { 'name' : 'underlay_proto', 'datatype' : 'int', 'index' : false },
                { 'name' : 'underlay_source_port', 'datatype' : 'int', 'index' : false },
                ]
@@ -743,6 +823,33 @@ const list<query_table> _TABLES = [
                ]
          },
          'columnvalues' : [ ],
+    },
+    {
+        'name' : OVERLAY_TO_UNDERLAY_FLOW_MAP,
+        'schema' : {
+            'type' : 'FLOW',
+            'columns' : [
+              { 'name' : O_SVN, 'datatype' : 'string', 'index' : true, 'select' : false, 'suffixes' : [ O_SIP ] },
+              { 'name' : O_SIP, 'datatype' : 'string', 'index' : false, 'select' : false },
+              { 'name' : O_DVN, 'datatype' : 'string', 'index' : true, 'select' : false, 'suffixes' : [ O_DIP ] },
+              { 'name' : O_DIP, 'datatype' : 'string', 'index' : false, 'select' : false },
+              { 'name' : O_SPORT, 'datatype' : 'int', 'index' : false, 'select' : false },
+              { 'name' : O_DPORT, 'datatype' : 'int', 'index' : false, 'select' : false },
+              { 'name' : O_PROTOCOL, 'datatype' : 'int', 'index' : true, 'select' : false, 'suffixes' : [ O_SPORT, O_DPORT ] },
+              { 'name' : O_VROUTER, 'datatype' : 'string', 'index' : true, 'select' : false },
+              { 'name' : U_PROUTER, 'datatype' : 'string', 'index' : false },
+              { 'name' : U_PIFINDEX, 'datatype' : 'int', 'index' : false },
+              { 'name' : U_VLAN, 'datatype' : 'int', 'index' : false },
+              { 'name' : U_SIP, 'datatype' : 'string', 'index' : false },
+              { 'name' : U_DIP, 'datatype' : 'string', 'index' : false },
+              { 'name' : U_SPORT, 'datatype' : 'int', 'index' : false },
+              { 'name' : U_DPORT, 'datatype' : 'int', 'index' : false },
+              { 'name' : U_PROTOCOL, 'datatype' : 'int', 'index' : false },
+              { 'name' : U_FLOWTYPE, 'datatype' : 'string', 'index' : false },
+              { 'name' : U_OTHERINFO, 'datatype' : 'string', 'index' : false },
+              ]
+        },
+        'columnvalues' : [ ],
     },
 ]
 
