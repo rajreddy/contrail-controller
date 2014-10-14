@@ -753,19 +753,14 @@ void DnsHandler::SendDnsResponse() {
     // fill in the response
     if (in_pkt_info.ip) {
         // IPv4 request
-        in_addr_t src_ip = in_pkt_info.ip->ip_dst.s_addr;
-        in_addr_t dest_ip = in_pkt_info.ip->ip_src.s_addr;
-
-        pkt_info_->ip = (struct ip *)(buff + eth_len);
-        pkt_info_->transp.udp = (struct udphdr *)
-            ((uint8_t *)pkt_info_->ip + sizeof(struct ip));
-
-        data_len += sizeof(udphdr);
-        UdpHdr(data_len, src_ip, DNS_SERVER_PORT,
-               dest_ip, ntohs(in_pkt_info.transp.udp->uh_sport));
-        data_len += sizeof(struct ip);
-        IpHdr(data_len, src_ip, dest_ip, IPPROTO_UDP);
-
+        in_addr_t src_ip = pkt_info_->ip->ip_dst.s_addr;
+        in_addr_t dest_ip = pkt_info_->ip->ip_src.s_addr;
+        UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
+               dest_ip, ntohs(pkt_info_->transp.udp->source));
+        dns_resp_size_ += sizeof(struct ip);
+        IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP, 0, 16);
+        EthHdr(agent()->vhost_interface()->mac(), dest_mac,
+               ETHERTYPE_IP);
     } else {
         // IPv6 request
         Ip6Address src_ip = in_pkt_info.ip_daddr.to_v6();
