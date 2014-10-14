@@ -741,7 +741,7 @@ void DnsHandler::SendDnsResponse() {
         UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT,
                dest_ip, ntohs(pkt_info_->transp.udp->source));
         dns_resp_size_ += sizeof(struct ip);
-        IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
+        IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP, 0, 16);
         EthHdr(agent()->vhost_interface()->mac(), dest_mac,
                ETHERTYPE_IP);
     } else {
