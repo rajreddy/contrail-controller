@@ -720,7 +720,11 @@ bool DhcpHandler::CreateRelayPacket() {
     UdpHdr(len, in_pkt_info.ip->ip_src.s_addr, pkt_info_->sport,
            in_pkt_info.ip->ip_dst.s_addr, pkt_info_->dport);
     len += sizeof(struct ip);
-    IpHdr(len, htonl(agent()->router_id().to_ulong()), 0xFFFFFFFF, IPPROTO_UDP);
+    IpHdr(len, htonl(agent()->router_id().to_ulong()),
+          0xFFFFFFFF, IPPROTO_UDP, 0, 16);
+    EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
+           MacAddress(in_pkt_info.eth->ether_dhost), ETHERTYPE_IP);
+    len += sizeof(struct ether_header);
 
     pkt_info_->set_len(len);
     return true;
@@ -793,7 +797,10 @@ bool DhcpHandler::CreateRelayResponsePacket() {
            0xFFFFFFFF, pkt_info_->dport);
     len += sizeof(struct ip);
     IpHdr(len, htonl(agent()->router_id().to_ulong()),
-          0xFFFFFFFF, IPPROTO_UDP);
+          0xFFFFFFFF, IPPROTO_UDP, 0, 16);
+    EthHdr(agent()->vhost_interface()->mac(), MacAddress(dhcp->chaddr),
+           ETHERTYPE_IP);
+    len += sizeof(struct ether_header);
 
     pkt_info_->set_len(len);
     return true;
@@ -969,7 +976,7 @@ uint16_t DhcpHandler::FillDhcpResponse(const MacAddress &dest_mac,
     len += sizeof(udphdr);
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
     len += sizeof(struct ip);
-    IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
+    IpHdr(len, src_ip, dest_ip, IPPROTO_UDP, 0, 16);
 
     pkt_info_->set_len(len + eth_len);
     return pkt_info_->packet_buffer()->data_len();
