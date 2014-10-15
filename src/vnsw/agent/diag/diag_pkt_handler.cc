@@ -68,8 +68,8 @@ bool DiagPktHandler::HandleTraceRoutePacket() {
 void DiagPktHandler::SendTimeExceededPacket() {
     // send IP header + 128 bytes from incoming pkt in the icmp response
     uint16_t icmp_len = pkt_info_->ip->ip_hl * 4 + 128;
-    if (pkt_info_->ip->ip_len < icmp_len)
-        icmp_len = pkt_info_->ip->ip_len;
+    if (ntohs(pkt_info_->ip->ip_len) < icmp_len)
+        icmp_len = ntohs(pkt_info_->ip->ip_len);
     uint8_t icmp_payload[icmp_len];
     memcpy(icmp_payload, pkt_info_->ip, icmp_len);
     DiagEntry::DiagKey key = -1;
@@ -87,7 +87,7 @@ void DiagPktHandler::SendTimeExceededPacket() {
                   MacAddress(pkt_info_->eth->ether_shost), ETHERTYPE_IP,
                   VmInterface::kInvalidVlanId);
 
-    uint16_t ip_len = sizeof(iphdr) + icmp_len;
+    uint16_t ip_len = sizeof(iphdr) + 8 + icmp_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,
                  htonl(agent()->router_id().to_ulong()),
                  htonl(pkt_info_->ip_saddr.to_v4().to_ulong()),
@@ -117,15 +117,15 @@ bool DiagPktHandler::HandleTraceRouteResponse() {
     DiagEntry *entry = diag_table_->Find(key);
     if (!entry) return true;
 
+    address_ = pkt_info_->ip_saddr.to_v4().to_string();
+    entry->HandleReply(this);
+
     DiagEntryOp *op;
     if (IsDone()) {
         op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
     } else {
         op = new DiagEntryOp(DiagEntryOp::RETRY, entry);
     }
-
-    address_ = pkt_info_->ip_saddr.to_v4().to_string();
-    entry->HandleReply(this);
     entry->diag_table()->Enqueue(op);
 
     return true;
@@ -136,6 +136,7 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
     if (data_len < sizeof(struct ip))
         return false;
     struct ip *ip_hdr = (struct ip *)(data);
+    *key = ntohs(ip_hdr->ip_id);
     uint16_t len = sizeof(struct ip);
 
     if (ip_hdr->ip_src.s_addr == htonl(agent()->router_id().to_ulong()) ||
@@ -144,25 +145,25 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
         switch (ip_hdr->ip_p) {
             case IPPROTO_GRE : {
                 if (data_len < len + sizeof(GreHdr))
-                    return false;
+                    return true;
                 len += sizeof(GreHdr);
                 break;
             }
 
             case IPPROTO_UDP : {
                 if (data_len < len + sizeof(udphdr))
-                    return false;
+                    return true;
                 len += sizeof(udphdr);
                 break;
             }
 
             default: {
-                return false;
+                return true;
             }
         }
         len += sizeof(MplsHdr);
         if (data_len < len + sizeof(struct ip))
-            return false;
+            return true;
         ip_hdr = (struct ip *)(data + len);
         len += sizeof(struct ip);
         switch (ip_hdr->ip_p) {
@@ -179,23 +180,21 @@ bool DiagPktHandler::ParseIcmpData(const uint8_t *data, uint16_t data_len,
                 break;
 
             default:
-                return false;
+                return true;
         }
         if (data_len < len + sizeof(AgentDiagPktData))
-            return false;
+            return true;
 
         AgentDiagPktData *agent_data = (AgentDiagPktData *)(data + len);
         if (ntohl(agent_data->op_) == AgentDiagPktData::DIAG_REQUEST) {
             agent_data->op_ = htonl(AgentDiagPktData::DIAG_REPLY);
-            return true;
         } else if (ntohl(agent_data->op_) == AgentDiagPktData::DIAG_REPLY) {
             *key = ntohs(agent_data->key_);
             done_ = true;
-            return true;
         }
     }
 
-    return false;
+    return true;
 }
 
 bool DiagPktHandler::Run() {
@@ -232,7 +231,7 @@ bool DiagPktHandler::Run() {
 
     entry->HandleReply(this);
 
-    if (entry->GetSeqNo() == entry->GetCount()) {
+    if (entry->GetSeqNo() == entry->GetMaxAttempts()) {
         DiagEntryOp *op;
         op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
         entry->diag_table()->Enqueue(op);

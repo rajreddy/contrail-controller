@@ -41,6 +41,7 @@ public:
         return (AgentDiagPktData *)(pkt_info_->data);
     }
     bool IsDone() const { return done_; }
+    void set_done(bool done) { done_ = done; }
     void TcpHdr(in_addr_t, uint16_t, in_addr_t, uint16_t, bool , uint32_t, uint16_t);
 
 private:
