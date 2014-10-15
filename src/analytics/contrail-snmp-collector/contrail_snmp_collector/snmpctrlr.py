@@ -47,4 +47,5 @@ class Controller(object):
         while self._keep_running:
             for netdev in self._config.devices():
                 self.task(netdev)
+                gevent.sleep(0)
             gevent.sleep(self._sleep_time)
