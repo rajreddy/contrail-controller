@@ -29,7 +29,8 @@ class SnmpTable(object):
         return struct.unpack('B' * l, d)[0]
 
     def _is_int(self, x):
-        return x.type in ('INTEGER', 'COUNTER', 'INTEGER32', 'TICKS', 'GAUGE')
+        return x.type in ('INTEGER', 'COUNTER', 'INTEGER32', 'TICKS', 'GAUGE',
+                'COUNTER64', 'INTEGER64')
 
     def normalize(self, varbind, mactags=(), extra_process=None):
         if self._is_int(varbind):
@@ -175,16 +176,18 @@ class LldpTable(SnmpTable):
                 self.lldpRemoteSystemsData[xiid][x.tag] = self.normalize(x,
                         ('lldpRemChassisId', ), self.capabilities)
 
-class IfTable(SnmpTable):
+class IfMib(SnmpTable):
     def __init__(self, session):
-        super(IfTable, self).__init__(session)
+        super(IfMib, self).__init__(session)
         self.ifTable = {}
+        self.ifXTable = {}
 
     def py_obj(self):
-        return self.ifTable.values()
+        return {'ifTable': self.ifTable.values(),
+                'ifXTable': self.ifXTable.values()}
 
     def table_names(self):
-        return 'ifTable'
+        return ['ifTable', 'ifXTable']
 
     def ifTable_translator(self, snmp_dict):
         for x in snmp_dict['vars']:
@@ -192,6 +195,13 @@ class IfTable(SnmpTable):
             if ifidx not in self.ifTable:
                 self.ifTable[ifidx] = {}
             self.ifTable[ifidx][x.tag] = self.normalize(x, ('ifPhysAddress', ))
+
+    def ifXTable_translator(self, snmp_dict):
+        for x in snmp_dict['vars']:
+            ifidx = int(x.iid)
+            if ifidx not in self.ifXTable:
+                self.ifXTable[ifidx] = {'ifIndex': ifidx}
+            self.ifXTable[ifidx][x.tag] = self.normalize(x)
 
 class ArpTable(SnmpTable):
     def __init__(self, session):
@@ -216,7 +226,7 @@ class ArpTable(SnmpTable):
                     'ip': ip, 'mac':self._to_mac(x.val)})
 
 class SnmpSession(netsnmp.Session):
-    table_list = ['LldpTable', 'IfTable', 'ArpTable']
+    table_list = ['LldpTable', 'IfMib', 'ArpTable']
 
     @classmethod
     def TABLES(cls):
