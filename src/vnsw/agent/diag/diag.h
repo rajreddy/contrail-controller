@@ -35,7 +35,7 @@ public:
     virtual bool IsDone();
     DiagKey GetKey() { return key_;};
     uint32_t GetSeqNo() {return seq_no_;};
-    uint32_t GetCount() {return count_;};
+    uint32_t GetMaxAttempts() {return max_attempts_;};
     void SetKey(DiagKey key) {key_ = key;};
     void Retry();
     bool TimerCancel() {
@@ -59,7 +59,7 @@ protected:
 
     int timeout_;
     DiagTimer *timer_;
-    uint32_t count_;
+    uint32_t max_attempts_;
     uint32_t seq_no_;
 };
 

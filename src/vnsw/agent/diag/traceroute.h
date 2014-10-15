@@ -12,9 +12,6 @@
 class DiagTable;
 class TraceRoute: public DiagEntry {
 public:
-    static const int kMaxTtl = 16;
-    static const int kMaxAttempts = 1;
-    static const int kTimeout = 2000;
     static const int kBufferSize = 1024;
 
     TraceRoute(const TraceRouteReq *req, DiagTable *diag_table);
@@ -35,7 +32,6 @@ private:
 
     bool       done_;
     uint8_t    ttl_;  // ttl value set in the msg sent out
-    uint16_t   max_attempts_; // max attempts for a specific ttl
     uint16_t   max_ttl_;      // max ttl upto which requests are sent
     std::string context_;
 };
