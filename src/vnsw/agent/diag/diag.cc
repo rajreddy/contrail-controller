@@ -22,13 +22,13 @@ const std::string KDiagName("DiagTimeoutHandler");
 DiagEntry::DiagEntry(const std::string &sip, const std::string &dip,
                      uint8_t proto, uint16_t sport, uint16_t dport,
                      const std::string &vrf_name, int timeout,
-                     int count, DiagTable *diag_table) :
+                     int attempts, DiagTable *diag_table) :
     sip_(Ip4Address::from_string(sip, ec_)),
     dip_(Ip4Address::from_string(dip, ec_)),
     proto_(proto), sport_(sport), dport_(dport),
     vrf_name_(vrf_name), diag_table_(diag_table), timeout_(timeout),
     timer_(TimerManager::CreateTimer(*(diag_table->agent()->event_manager())->io_service(), 
-    "DiagTimeoutHandler")), count_(count), seq_no_(0) {
+    "DiagTimeoutHandler")), max_attempts_(attempts), seq_no_(0) {
 }
 
 DiagEntry::~DiagEntry() {
@@ -50,7 +50,7 @@ void DiagEntry::RestartTimer() {
 }
 
 bool DiagEntry::IsDone() {
-    return (GetSeqNo() == GetCount()) ? true : false;
+    return (GetSeqNo() == GetMaxAttempts()) ? true : false;
 }
 
 bool DiagEntry::TimerExpiry( uint32_t seq_no) {

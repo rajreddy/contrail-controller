@@ -19,11 +19,7 @@ static void SendSandeshReply(const std::string &address,
                              const std::string &context,
                              bool more) {
     TraceRouteResp *resp = new TraceRouteResp();
-    TraceRouteHop hop;
-    hop.set_address(address);
-    std::vector<TraceRouteHop> list;
-    list.push_back(hop);
-    resp->set_hop_list(list);
+    resp->set_hop(address);
 
     resp->set_context(context);
     resp->set_more(more);
@@ -35,10 +31,10 @@ TraceRoute::TraceRoute(const TraceRouteReq *trace_route_req,
     DiagEntry(trace_route_req->get_source_ip(), trace_route_req->get_dest_ip(),
               trace_route_req->get_protocol(), trace_route_req->get_source_port(),
               trace_route_req->get_dest_port(), trace_route_req->get_vrf_name(),
-              kTimeout, kMaxAttempts, diag_table),
+              trace_route_req->get_interval() * 100,
+              trace_route_req->get_max_attempts(), diag_table),
     done_(false), ttl_(2),
-    max_attempts_(kMaxAttempts),
-    max_ttl_(kMaxTtl),
+    max_ttl_(trace_route_req->get_max_hops()),
     context_(trace_route_req->context()) {
 }
 
@@ -130,12 +126,12 @@ void TraceRoute::SendRequest() {
 
 // if timed out max times for a TTL, reply and increment ttl
 void TraceRoute::RequestTimedOut(uint32_t seqno) {
-    if (seq_no_ >= max_attempts_) {
+    if (seq_no_ >= GetMaxAttempts()) {
         std::string address;
-        for (int i = 0; i < max_attempts_; i++)
+        for (uint32_t i = 0; i < GetMaxAttempts(); i++)
             address += "* ";
 
-        done_ = (ttl_ >= max_ttl_) ? true : false;
+        done_ = ((ttl_ >= max_ttl_) ? true : false);
         SendSandeshReply(address, context_, !done_);
         IncrementTtl();
     }
@@ -143,6 +139,10 @@ void TraceRoute::RequestTimedOut(uint32_t seqno) {
 
 // Ready to send a response and increment ttl
 void TraceRoute::HandleReply(DiagPktHandler *handler) {
+    if (ttl_ >= max_ttl_) {
+        handler->set_done(true);
+        done_ = true;
+    }
     SendSandeshReply(handler->GetAddress(), context_, !handler->IsDone());
     IncrementTtl();
 }
@@ -185,7 +185,7 @@ void TraceRouteReq::HandleRequest() const {
 
         uint8_t proto = get_protocol();
         if (proto != IPPROTO_TCP && proto != IPPROTO_UDP && proto != IPPROTO_ICMP) {
-            err_str = "Invalid protocol. Valid Protocols are TCP, UDP and ICMP";
+            err_str = "Invalid protocol - Supported protocols are TCP, UDP and ICMP";
             goto error;
         }
 
@@ -203,7 +203,7 @@ void TraceRouteReq::HandleRequest() const {
             nh = rt->GetActiveNextHop();
         }
         if (!nh || nh->GetType() != NextHop::INTERFACE) {
-            err_str = "VM not present on this server";
+            err_str = "Source VM is not present in this server";
             goto error;
         }
 

@@ -187,7 +187,7 @@ void Ping::HandleReply(DiagPktHandler *handler) {
 void Ping::SendSummary() {
     PingSummaryResp *resp = new PingSummaryResp();
 
-    if (pkt_lost_count_ != count_) {
+    if (pkt_lost_count_ != GetMaxAttempts()) {
         //If we had some succesful replies, send in
         //average rtt for succesful ping requests
         avg_rtt_ = (avg_rtt_ / (seq_no_ - pkt_lost_count_));
