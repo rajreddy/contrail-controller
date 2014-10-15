@@ -10,8 +10,45 @@ struct ArpTable {
     3: string ip
 }
 
+struct IfStats {
+  1: u64 ifInUcastPkts
+  2: u64 ifInMulticastPkts
+  3: u64 ifInBroadcastPkts
+  4: u64 ifInDiscards
+  5: u64 ifInErrors
+  6: u64 ifOutUcastPkts
+  7: u64 ifOutMulticastPkts
+  8: u64 ifOutBroadcastPkts
+  9: u64 ifOutDiscards
+  10: u64 ifOutErrors
+  11: u64 ifIndex
+}
+
+struct IfXTable {
+     1: string ifAlias
+     2: i32 ifConnectorPresent
+     3: i32 ifCounterDiscontinuityTime
+     4: u64 ifHCInBroadcastPkts
+     5: u64 ifHCInMulticastPkts
+     6: u64 ifHCInOctets
+     7: u64 ifHCInUcastPkts
+     8: u64 ifHCOutBroadcastPkts
+     9: u64 ifHCOutMulticastPkts
+    10: u64 ifHCOutOctets
+    11: u64 ifHCOutUcastPkts
+    12: i32 ifHighSpeed
+    13: u64 ifInBroadcastPkts
+    14: u64 ifInMulticastPkts
+    15: i32 ifLinkUpDownTrapEnable
+    16: string ifName
+    17: u64 ifOutBroadcastPkts
+    18: u64 ifOutMulticastPkts
+    19: i32 ifPromiscuousMode
+    20: i32 ifIndex
+}
+
 struct IfTable {
-    1:  u64 ifAdminStatus
+    1:  i32 ifAdminStatus
     2:  string ifDescr
     3:  u64 ifInDiscards
     4:  u64 ifInErrors
@@ -19,10 +56,10 @@ struct IfTable {
     6:  u64 ifInOctets
     7:  u64 ifInUcastPkts
     8:  u64 ifInUnknownProtos
-    9:  u64 ifIndex
-    10: u64 ifLastChange
-    11: u64 ifMtu
-    12: u64 ifOperStatus
+    9:  u32 ifIndex
+    10: i32 ifLastChange
+    11: u32 ifMtu
+    12: i32 ifOperStatus
     13: u64 ifOutDiscards
     14: u64 ifOutErrors
     15: u64 ifOutNUcastPkts
@@ -31,8 +68,8 @@ struct IfTable {
     18: u64 ifOutUcastPkts
     19: string ifPhysAddress
     20: string ifSpecific
-    21: u64 ifSpeed
-    22: u64 ifType
+    21: i32 ifSpeed
+    22: i32 ifType
 }
 
 enum LldpSystemCapabilitiesMap {
@@ -123,7 +160,8 @@ struct PRouterEntry {
     3: optional LldpTable lldpTable
     4: optional list<ArpTable> arpTable
     5: optional list<IfTable> ifTable
-    6: optional list<IfTable> ifStats (tags="name:.ifIndex")
+    6: optional list<IfXTable> ifXTable
+    7: optional list<IfStats> ifStats (tags="name:.ifIndex")
 }
 
 uve sandesh PRouterUVE {
