@@ -1,7 +1,7 @@
 import pprint, socket, copy
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
-from gen_py.prouter.ttypes import ArpTable, IfTable, \
+from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
          LldpSystemCapabilitiesMap, LldpLocManAddrEntry, \
          LldpLocalSystemData, LldpRemOrgDefInfoTable, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
@@ -42,25 +42,45 @@ class SnmpUve(object):
         self.if_stat = {}
 
     def get_diff(self, data):
-        if data['name'] not in self.if_stat:
-            self.if_stat[data['name']] = {}
-        diffs = []
-        for ife in data['ifTable']:
-            if ife['ifDescr'] in self.if_stat[data['name']]:
-                diffs.append(self.diff(self.if_stat[data['name']][
-                            ife['ifDescr']], ife))
-            self.if_stat[data['name']][ife['ifDescr']] = copy.copy(ife)
-        data['ifStats'] = map(lambda x: IfTable(**x), diffs)
+        pname = data['name']
+        if pname not in self.if_stat:
+            self.if_stat[pname] = {}
+        diffs = {}
+        for ife in data['ifMib']['ifTable'] + data['ifMib']['ifXTable']:
+            if 'ifDescr' in ife:
+                ifname = ife['ifDescr']
+            else:
+                ifname = ife['ifName']
+
+            if ifname not in diffs:
+                diffs[ifname] = {}
+            if ifname in self.if_stat[pname]:
+                diffs[ifname].update(self.diff(self.if_stat[pname][ifname],
+                                                                        ife))
+            if ifname not in self.if_stat[pname]:
+                self.if_stat[pname][ifname] = {}
+            self.if_stat[pname][ifname].update(self.stat_req(ife))
+        data['ifStats'] = map(lambda x: IfStats(**x), diffs.values())
 
     def diff(self, old, new):
-        d = {}
-        for k in new:
-            if isinstance(new[k], int) and k in old and k not in ('ifIndex',
-                    'ifLastChange', 'ifMtu'):
+        d = {'ifIndex': new['ifIndex']}
+        for k in self.stat_list():
+            if k in new and k in old:
                 d[k] = new[k] - old[k]
-            else:
-                d[k] = new[k]
         return d
+
+    def stat_list(self):
+        return ('ifInUcastPkts', 'ifInMulticastPkts', 'ifInBroadcastPkts',
+                'ifInDiscards', 'ifInErrors', 'ifOutUcastPkts',
+                'ifOutMulticastPkts', 'ifOutBroadcastPkts', 'ifOutDiscards',
+                'ifOutErrors',)
+
+    def stat_req(self, d):
+        r = {}
+        for k in self.stat_list():
+            if k in d:
+                r[k] = d[k]
+        return r
 
     def send_flow_uve(self, data):
         if data['name']:
@@ -80,10 +100,13 @@ class SnmpUve(object):
         if 'arpTable' in data:
             data['arpTable'] = map(lambda x: ArpTable(**x),
                     data['arpTable'])
-        if 'ifTable' in data:
+        if 'ifMib' in data:
             self.get_diff(data)
             data['ifTable'] = map(lambda x: IfTable(**x),
-                    data['ifTable'])
+                    data['ifMib']['ifTable'])
+            data['ifXTable'] = map(lambda x: IfXTable(**x),
+                    data['ifMib']['ifXTable'])
+            del data['ifMib']
         if 'lldpTable' in data:
             if 'lldpLocManAddrEntry' in data['lldpTable'][
               'lldpLocalSystemData']:
