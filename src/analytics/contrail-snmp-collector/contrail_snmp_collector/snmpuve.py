@@ -23,7 +23,7 @@ class SnmpUve(object):
         self._instance_id = '0'
         sandesh_global.init_generator(self._moduleid, self._hostname,
                                       self._node_type_name, self._instance_id,
-                                      self._conf.collectors(), 
+                                      self._conf.collectors(),
                                       self._node_type_name,
                                       self._conf.http_port(),
                                       ['contrail_snmp_collector.gen_py'])
@@ -102,55 +102,63 @@ class SnmpUve(object):
                     data['arpTable'])
         if 'ifMib' in data:
             self.get_diff(data)
-            data['ifTable'] = map(lambda x: IfTable(**x),
+            if 'ifTable' in data['ifMib']:
+                data['ifTable'] = map(lambda x: IfTable(**x),
                     data['ifMib']['ifTable'])
-            data['ifXTable'] = map(lambda x: IfXTable(**x),
+            if 'ifXTable' in data['ifMib']:
+                data['ifXTable'] = map(lambda x: IfXTable(**x),
                     data['ifMib']['ifXTable'])
             del data['ifMib']
         if 'lldpTable' in data:
-            if 'lldpLocManAddrEntry' in data['lldpTable'][
-              'lldpLocalSystemData']:
-                data['lldpTable']['lldpLocalSystemData'][
-                    'lldpLocManAddrEntry'] = LldpLocManAddrEntry(
-                        **data['lldpTable']['lldpLocalSystemData'][
-                        'lldpLocManAddrEntry'])
-            data['lldpTable']['lldpLocalSystemData'][
-                'lldpLocSysCapEnabled'] = map(self._to_cap_map, data[
-                        'lldpTable']['lldpLocalSystemData'][
-                        'lldpLocSysCapEnabled'])
-            data['lldpTable']['lldpLocalSystemData'][
-                'lldpLocSysCapSupported'] = map(self._to_cap_map,
-                        data['lldpTable']['lldpLocalSystemData'][
-                        'lldpLocSysCapSupported'])
-            data['lldpTable']['lldpLocalSystemData'] = \
-                LldpLocalSystemData(**data['lldpTable'][
-                        'lldpLocalSystemData'])
+            if 'lldpLocalSystemData' in data['lldpTable']:
+                if 'lldpLocManAddrEntry' in data['lldpTable'][
+                  'lldpLocalSystemData']:
+                    data['lldpTable']['lldpLocalSystemData'][
+                        'lldpLocManAddrEntry'] = LldpLocManAddrEntry(
+                            **data['lldpTable']['lldpLocalSystemData'][
+                            'lldpLocManAddrEntry'])
+                if 'lldpLocSysCapEnabled' in data['lldpTable'][
+                  'lldpLocalSystemData']:
+                    data['lldpTable']['lldpLocalSystemData'][
+                        'lldpLocSysCapEnabled'] = map(self._to_cap_map, data[
+                            'lldpTable']['lldpLocalSystemData'][
+                            'lldpLocSysCapEnabled'])
+                if 'lldpLocSysCapSupported' in data['lldpTable'][
+                  'lldpLocalSystemData']:
+                    data['lldpTable']['lldpLocalSystemData'][
+                        'lldpLocSysCapSupported'] = map(self._to_cap_map,
+                            data['lldpTable']['lldpLocalSystemData'][
+                            'lldpLocSysCapSupported'])
+                data['lldpTable']['lldpLocalSystemData'] = \
+                    LldpLocalSystemData(**data['lldpTable'][
+                            'lldpLocalSystemData'])
 
             rl = []
-            for d in data['lldpTable']['lldpRemoteSystemsData']:
+            if 'lldpRemoteSystemsData' in data['lldpTable']:
+                for d in data['lldpTable']['lldpRemoteSystemsData']:
 
-                if 'lldpRemSysCapEnabled' in d:
-                    d['lldpRemSysCapEnabled'] = map(self._to_cap_map,
-                            d['lldpRemSysCapEnabled'])
-                if 'lldpRemSysCapSupported' in d:
-                    d['lldpRemSysCapSupported'] = map(self._to_cap_map, 
-                            d['lldpRemSysCapSupported'])
-                if 'lldpRemOrgDefInfoEntry' in d:
-                    if 'lldpRemOrgDefInfoTable' in d[
-                                            'lldpRemOrgDefInfoEntry']:
-                        d['lldpRemOrgDefInfoEntry'][
-                             'lldpRemOrgDefInfoTable'] = map(lambda x: \
-                                 LldpRemOrgDefInfoTable(**x), 
-                                 d['lldpRemOrgDefInfoEntry'][
-                                    'lldpRemOrgDefInfoTable'])
-                        d['lldpRemOrgDefInfoEntry'] = \
-                            LldpRemOrgDefInfoEntry(**d[
-                                    'lldpRemOrgDefInfoEntry'])
-                if 'lldpRemManAddrEntry' in d:
-                    d['lldpRemManAddrEntry'] = LldpRemManAddrEntry(
-                            **d['lldpRemManAddrEntry'])
-                rl.append(LldpRemoteSystemsData(**d))
-            data['lldpTable']['lldpRemoteSystemsData'] = rl
+                    if 'lldpRemSysCapEnabled' in d:
+                        d['lldpRemSysCapEnabled'] = map(self._to_cap_map,
+                                d['lldpRemSysCapEnabled'])
+                    if 'lldpRemSysCapSupported' in d:
+                        d['lldpRemSysCapSupported'] = map(self._to_cap_map,
+                                d['lldpRemSysCapSupported'])
+                    if 'lldpRemOrgDefInfoEntry' in d:
+                        if 'lldpRemOrgDefInfoTable' in d[
+                                                'lldpRemOrgDefInfoEntry']:
+                            d['lldpRemOrgDefInfoEntry'][
+                                 'lldpRemOrgDefInfoTable'] = map(lambda x: \
+                                     LldpRemOrgDefInfoTable(**x),
+                                     d['lldpRemOrgDefInfoEntry'][
+                                        'lldpRemOrgDefInfoTable'])
+                            d['lldpRemOrgDefInfoEntry'] = \
+                                LldpRemOrgDefInfoEntry(**d[
+                                        'lldpRemOrgDefInfoEntry'])
+                    if 'lldpRemManAddrEntry' in d:
+                        d['lldpRemManAddrEntry'] = LldpRemManAddrEntry(
+                                **d['lldpRemManAddrEntry'])
+                    rl.append(LldpRemoteSystemsData(**d))
+                data['lldpTable']['lldpRemoteSystemsData'] = rl
             data['lldpTable'] = LldpTable(**data['lldpTable'])
         return PRouterUVE(data=PRouterEntry(**data))
 
