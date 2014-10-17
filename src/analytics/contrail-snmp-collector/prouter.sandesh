@@ -72,15 +72,20 @@ struct IfTable {
     22: i32 ifType
 }
 
+struct IpMib {
+    1: u32 ifIndex
+    2: string ipAdEntIfIndex
+}
+
 enum LldpSystemCapabilitiesMap {
-    Other = 0 
-    Repeater = 1 
-    Bridge = 2 
-    WlanAccessPoint = 3 
-    Router = 4 
-    Telephone = 5 
-    DocsisCableDevice = 6 
-    StationOnly = 7 
+    Other = 0
+    Repeater = 1
+    Bridge = 2
+    WlanAccessPoint = 3
+    Router = 4
+    Telephone = 5
+    DocsisCableDevice = 6
+    StationOnly = 7
 }
 
 const map<LldpSystemCapabilitiesMap, string> LldpSystemCapabilitiesMapNames = {
@@ -150,7 +155,7 @@ struct LldpRemoteSystemsData {
 }
 
 struct LldpTable {
-    1: LldpLocalSystemData lldpLocalSystemData 
+    1: LldpLocalSystemData lldpLocalSystemData
     2: optional list<LldpRemoteSystemsData> lldpRemoteSystemsData
 }
 
@@ -162,6 +167,7 @@ struct PRouterEntry {
     5: optional list<IfTable> ifTable
     6: optional list<IfXTable> ifXTable
     7: optional list<IfStats> ifStats (tags="name:.ifIndex")
+    8: optional list<IpMib> ipMib
 }
 
 uve sandesh PRouterUVE {

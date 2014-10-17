@@ -48,7 +48,7 @@ class SnmpTable(object):
 
     def default_value(self, varbind):
         return self.sane(varbind.val)
-        
+
     def snmp_get(self):
         snmpvars = self.get_table(self.table_names())
         self.translator(snmpvars)
@@ -73,6 +73,19 @@ class LldpLocSysNameTable(SnmpTable):
 
     def py_obj(self):
         return self.name
+
+class IpMib(SnmpTable):
+    def table_names(self):
+        return 'ipAdEntIfIndex'
+
+    def ipAdEntIfIndex_translator(self, snmp_dict):
+        self.ips = []
+        for x in snmp_dict['vars']:
+            self.ips.append({'ifIndex': self.normalize(x),
+                    'ipAdEntIfIndex': x.iid})
+
+    def py_obj(self):
+        return self.ips
 
 class LldpTable(SnmpTable):
     def __init__(self, session):
@@ -140,7 +153,7 @@ class LldpTable(SnmpTable):
             time, ifidx, nid, oid, xiid = self._to_time_ifidx_nid(x.iid)
             if xiid not in self.lldpRemoteSystemsData:
                 self.lldpRemoteSystemsData[xiid] = {
-                    'lldpRemTimeMark': time, 
+                    'lldpRemTimeMark': time,
                     'lldpRemLocalPortNum': ifidx,
                     'lldpRemIndex': nid
                 }
@@ -164,7 +177,7 @@ class LldpTable(SnmpTable):
                     if tbl not in self.lldpRemoteSystemsData[xiid]:
                         self.lldpRemoteSystemsData[xiid][tbl] = {
                             'lldpRemOrgDefInfoOUI':self.sane(''.join(soid[:3])),
-                            'lldpRemOrgDefInfoSubtype': int(soid[3]), 
+                            'lldpRemOrgDefInfoSubtype': int(soid[3]),
                             'lldpRemOrgDefInfoTable': [],
                         }
                     self.lldpRemoteSystemsData[xiid][tbl][
@@ -226,7 +239,7 @@ class ArpTable(SnmpTable):
                     'ip': ip, 'mac':self._to_mac(x.val)})
 
 class SnmpSession(netsnmp.Session):
-    table_list = ['LldpTable', 'IfMib', 'ArpTable']
+    table_list = ['LldpTable', 'IfMib', 'ArpTable', 'IpMib']
 
     @classmethod
     def TABLES(cls):
