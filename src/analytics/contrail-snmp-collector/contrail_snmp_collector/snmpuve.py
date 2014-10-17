@@ -2,7 +2,7 @@ import pprint, socket, copy
 from pysandesh.sandesh_base import *
 from pysandesh.connection_info import ConnectionState
 from gen_py.prouter.ttypes import ArpTable, IfTable, IfXTable, IfStats, \
-         LldpSystemCapabilitiesMap, LldpLocManAddrEntry, \
+         IpMib, LldpSystemCapabilitiesMap, LldpLocManAddrEntry, \
          LldpLocalSystemData, LldpRemOrgDefInfoTable, \
          LldpRemOrgDefInfoTable, LldpRemOrgDefInfoEntry, \
          LldpRemManAddrEntry, LldpRemoteSystemsData, \
@@ -109,6 +109,8 @@ class SnmpUve(object):
                 data['ifXTable'] = map(lambda x: IfXTable(**x),
                     data['ifMib']['ifXTable'])
             del data['ifMib']
+        if 'ipMib' in data:
+            data['ipMib'] = map(lambda x: IpMib(**x), data['ipMib'])
         if 'lldpTable' in data:
             if 'lldpLocalSystemData' in data['lldpTable']:
                 if 'lldpLocManAddrEntry' in data['lldpTable'][
