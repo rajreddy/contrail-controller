@@ -49,8 +49,11 @@ class SnmpUve(object):
         for ife in data['ifMib']['ifTable'] + data['ifMib']['ifXTable']:
             if 'ifDescr' in ife:
                 ifname = ife['ifDescr']
-            else:
+            elif 'ifName' in ife:
                 ifname = ife['ifName']
+            else:
+                print 'Err: ', ife.keys()
+                continue
 
             if ifname not in diffs:
                 diffs[ifname] = {}

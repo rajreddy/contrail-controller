@@ -110,7 +110,7 @@ void Options::Initialize(EventManager &evm,
              "Enable logging to syslog")
         ("DEFAULT.syslog_facility", opt::value<string>()->default_value("LOG_LOCAL0"),
              "Syslog facility to receive log lines")
-        ("DEFAULT.syslog_port", opt::value<int>()->default_value(514),
+        ("DEFAULT.syslog_port", opt::value<int>()->default_value(-1),
              "Syslog listener port (< 0 will disable the syslog)")
         ("DEFAULT.sflow_port", opt::value<int>()->default_value(6343),
              "sFlow listener UDP port (< 0 will disable sFlow Collector)")
