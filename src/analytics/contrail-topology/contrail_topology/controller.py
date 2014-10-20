@@ -43,6 +43,9 @@ class Controller(object):
     def compute(self):
         self.link = {}
         for pr, d in self.prouters.items():
+            if 'PRouterEntry' not in d or 'ifTable' not in d[
+                    'PRouterEntry'] or 'arpTable' not in d['PRouterEntry']:
+                continue
             self.link[pr] = []
             ifm = dict(map(lambda x: (x['ifIndex'], x['ifDescr']),
                         d['PRouterEntry']['ifTable']))
