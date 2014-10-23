@@ -146,10 +146,11 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
     }
 
-    // Flow setup(first) and teardown(last) messages are sent with higher
+    s_flow.set_setup_time(stats.setup_time);
+    SetUnderlayInfo(flow, s_flow);
+    // Flow setup(first) and teardown(last) messages are sent with higher 
     // priority.
     if (!stats.exported) {
-        s_flow.set_setup_time(stats.setup_time);
         // Set flow action
         std::string action_str;
         GetFlowSandeshActionParams(flow->match_p().action_info,
@@ -157,7 +158,6 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes,
         s_flow.set_action(action_str);
         stats.exported = true;
         level = SandeshLevel::SYS_ERR;
-        SetUnderlayInfo(flow, s_flow);
     }
     if (stats.teardown_time) {
         s_flow.set_teardown_time(stats.teardown_time);
