@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include "base/os.h"
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
@@ -114,7 +115,7 @@ bool AgentUtXmlValidate::ReadXml() {
     for (xml_node n = node().first_child(); n; n = n.next_sibling()) {
         uuid id;
         string name;
-        AgentUtXmlValidationNode *val = false;
+        AgentUtXmlValidationNode *val = NULL;
         if (CheckValidateNodeWithUuid("virtual-network", n, &id, &name)
             == true) {
             val = new AgentUtXmlVnValidate(name, id, n);

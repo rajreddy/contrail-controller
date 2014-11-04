@@ -70,6 +70,7 @@ const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
 const string POOL_TABLE             = "ObjectPoolTable"
 const string OSD_TABLE              = "ObjectOsdTable"
 const string DISK_TABLE             = "ObjectDiskTable"
+const string SERVER_TABLE             = "ObjectServerTable"
 const string PROUTER_TABLE          = "ObjectPRouter"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
@@ -93,6 +94,7 @@ const string CONFIG_OBJECT_DISPLAY_NAME    = "Config Object Table"
 const string STORAGE_POOL_DISPLAY_NAME     = "Storage Pool"
 const string STORAGE_OSD_DISPLAY_NAME      = "Storage Device"
 const string STORAGE_DISK_DISPLAY_NAME     = "Storage RawDisk"
+const string SERVER_TABLE_DISPLAY_NAME       = "Server Table Info"
 const string PROUTER_DISPLAY_NAME          = "pRouter"
 
 const string SYSTEM_LOG             = "SystemLog"
@@ -314,6 +316,7 @@ const map<string, string> UVE_MAP = {
     "storage-pool" : POOL_TABLE,
     "storage-osd" : OSD_TABLE,
     "storage-disk" : DISK_TABLE,
+    "server" : SERVER_TABLE,
     "prouter" : PROUTER_TABLE,
 }
 
@@ -407,6 +410,9 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     DISK_TABLE          : {
         'objtable_display_name' : STORAGE_DISK_DISPLAY_NAME
+    }
+    SERVER_TABLE          : {
+        'objtable_display_name' : SERVER_TABLE_DISPLAY_NAME
     }
 }
 
@@ -597,6 +603,18 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Ipmi Stats Info',
+      'stat_type' : 'SMIpmiInfo',
+      'stat_attr' : 'sensor_stats',
+      'obj_table' : SERVER_TABLE,
+      'attributes': [
+          { 'name' : 'sensor_stats.sensor',  'datatype' : 'string',    'index' : true},
+          { 'name' : 'sensor_stats.status', 'datatype': 'string', 'index' : false},
+          { 'name' : 'sensor_stats.reading', 'datatype': 'string', 'index' : true},
+        ]
+    },
+    {
+
       'display_name' : 'Sandesh Information',
       'stat_type' : 'SandeshMessageStat',
       'stat_attr' : 'msg_info',
@@ -715,6 +733,61 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Analytics Protobuf Collector Transmit Socket Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'tx_socket_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'tx_socket_stats.bytes',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.calls',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.average_bytes',            'datatype' : 'double', 'index' : false},
+          { 'name' : 'tx_socket_stats.blocked_duration',         'datatype' : 'string', 'index' : false},
+          { 'name' : 'tx_socket_stats.blocked_count',            'datatype' : 'long',   'index' : false},
+          { 'name' : 'tx_socket_stats.average_blocked_duration', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'tx_socket_stats.errors',                   'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Receive Socket Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'rx_socket_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'rx_socket_stats.bytes',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.calls',                    'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.average_bytes',            'datatype' : 'double', 'index' : false},
+          { 'name' : 'rx_socket_stats.blocked_duration',         'datatype' : 'string', 'index' : false},
+          { 'name' : 'rx_socket_stats.blocked_count',            'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_socket_stats.average_blocked_duration', 'datatype' : 'string', 'index' : false},
+          { 'name' : 'rx_socket_stats.errors',                   'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Analytics Protobuf Collector Receive Message Statistics',
+      'stat_type' : 'ProtobufCollectorStats'
+      'stat_attr' : 'rx_message_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'rx_message_stats.endpoint_name',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'rx_message_stats.messages',       'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.bytes',          'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.errors',         'datatype' : 'long',   'index' : false},
+          { 'name' : 'rx_message_stats.last_timestamp', 'datatype' : 'long',   'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Physical Router Linecard Heap Usage',
+      'stat_type' : 'PFEHeapInfo'
+      'stat_attr' : 'heap_info',
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'heap_info.name',        'datatype' : 'string', 'index' : true},
+          { 'name' : 'heap_info.size',        'datatype' : 'long',   'index' : false},
+          { 'name' : 'heap_info.allocated',   'datatype' : 'long',   'index' : false},
+          { 'name' : 'heap_info.utilization', 'datatype' : 'int',    'index' : false},
+        ]
+    },
+    {
       'display_name' : 'Underlay Flow Information',
       'stat_type' : 'UFlowData'
       'stat_attr' : 'flow',
@@ -732,7 +805,6 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : UFLOW_OTHERINFO, 'datatype' : 'string', 'index' : false },
         ]
     },
-  
 ]
 
 const list<query_table> _TABLES = [

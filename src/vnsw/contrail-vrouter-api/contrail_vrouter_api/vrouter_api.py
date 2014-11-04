@@ -78,8 +78,8 @@ class ContrailVRouterApi(object):
         else:
             ip_address = '0.0.0.0'
 
-        if 'network_uuid' in kwargs:
-            network_uuid = self._uuid_string_to_hex(kwargs['network_uuid'])
+        if 'vn_id' in kwargs:
+            network_uuid = self._uuid_string_to_hex(kwargs['vn_id'])
         else:
             network_uuid = [0] * 16
 
@@ -107,6 +107,9 @@ class ContrailVRouterApi(object):
             data.port_type = ttypes.PortTypes.NovaVMPort
         if 'ip6_address' in kwargs:
             data.ip6_address = kwargs['ip6_address']
+
+        if 'vlan' in kwargs:
+            data.vlan_id = kwargs['vlan']
 
         data.validate()
 

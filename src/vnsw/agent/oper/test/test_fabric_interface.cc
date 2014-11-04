@@ -2,11 +2,7 @@
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <linux/if_packet.h>
+#include "base/os.h"
 
 #include "testing/gunit.h"
 
@@ -120,8 +116,8 @@ static void NovaIntfAdd(FabricInterfaceTest *t, int id, const char *name,
     IpAddress ip = Ip4Address::from_string(addr);
     VmInterface::Add(t->interface_table_, MakeUuid(id), name, ip.to_v4(), mac,
                      "", MakeUuid(kProjectUuid),
-                     VmInterface::kInvalidVlanId, Agent::NullString(),
-                     Ip6Address());
+                     VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
+                     Agent::NullString(), Ip6Address());
 }
 
 // Fabric port with IP Address 0.0.0.0. Needs dhcp_relay

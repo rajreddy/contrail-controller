@@ -2,8 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
+#include <sys/socket.h>
 #include <netinet/if_ether.h>
 #include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
@@ -27,8 +29,8 @@
 #include "vr_types.h"
 #include "xmpp/test/xmpp_test_util.h"
 #include <services/services_sandesh.h>
+#include "oper/path_preference.h"
 
-#define MAC_LEN 6
 #define GRAT_IP "4.5.6.7"
 #define DIFF_NET_IP "3.2.6.9"
 #define MAX_WAIT_COUNT 50
@@ -36,7 +38,7 @@ short req_ifindex = 1, reply_ifindex = 1;
 MacAddress src_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
 MacAddress dest_mac(0x00, 0x01, 0x02, 0x03, 0x04, 0x05);
 MacAddress mac(0x00, 0x05, 0x07, 0x09, 0x0a, 0x0b);
-ulong src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
+unsigned long src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
@@ -532,7 +534,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     };
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
-    WAIT_FOR(500, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 1));
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 3));
 
     agent->GetArpProto()->ClearStats();
     DelIPAM("vn1", "vdns1");
@@ -542,7 +544,7 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     //Readd IPAM
     AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
     client->WaitForIdle();
-    WAIT_FOR(500, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 1));
+    WAIT_FOR(500, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 0));
 
     DelIPAM("vn1", "vdns1");
     DeleteVmportEnv(input, 1, true);
@@ -551,6 +553,92 @@ TEST_F(ArpTest, ArpReqOnVmInterface) {
     WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
     WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
 }
+
+//Test to verify sending of ARP request on new interface reactivation
+TEST_F(ArpTest, ArpReqOnVmInterface_1) {
+    Agent *agent = Agent::GetInstance();
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    CreateVmportEnv(input, 1);
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 3));
+
+    agent->GetArpProto()->ClearStats();
+    DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 3));
+
+    DelIPAM("vn1", "vdns1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
+}
+
+//Enqueue high preference for vm route, and check that ARP request
+//are not sent
+TEST_F(ArpTest, ArpReqOnVmInterface_2) {
+    Agent *agent = Agent::GetInstance();
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:00:00:01", 1, 1},
+    };
+    CreateVmportEnv(input, 1);
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 1));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == true));
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200", true},
+    };
+    AddIPAM("vn1", ipam_info, 1, NULL, "vdns1");
+    client->WaitForIdle();
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 3));
+
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    EXPECT_TRUE(agent->GetArpProto()->GetStats().vm_arp_req == 0);
+
+    AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.1");
+    Agent::GetInstance()->oper_db()->route_preference_module()->
+        EnqueueTrafficSeen(vm_ip, 32, VmPortGet(1)->id(), 1);
+    client->WaitForIdle();
+    agent->GetArpProto()->ClearStats();
+    client->WaitForIdle();
+    sleep(2);
+    WAIT_FOR(5000, 1000, (agent->GetArpProto()->GetStats().vm_arp_req == 0));
+
+    DelIPAM("vn1", "vdns1");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    WAIT_FOR(500, 1000, (agent->vm_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (agent->vn_table()->Size() == 0));
+    WAIT_FOR(500, 1000, (VrfFind("vrf1") == false));
+}
+
 
 void RouterIdDepInit(Agent *agent) {
 }

@@ -13,11 +13,11 @@ import sys
 import string
 import ConfigParser
 
+from pysandesh.sandesh_base import *
+from pysandesh.sandesh_logger import *
 from vnc_api import vnc_api
 from neutron_plugin_db import DBInterface
 
-
-LOG = logging.getLogger(__name__)
 
 @bottle.error(400)
 def error_400(err):
@@ -37,8 +37,11 @@ class NeutronPluginInterface(object):
     An instance of this class receives requests from Contrail Neutron Plugin
     """
 
-    def __init__(self, api_server_ip, api_server_port, conf_sections):
-        self._vnc_api_ip = api_server_ip
+    def __init__(self, api_server_ip, api_server_port, conf_sections, sandesh):
+        if api_server_ip == '0.0.0.0':
+            self._vnc_api_ip = '127.0.0.1'
+        else:
+            self._vnc_api_ip = api_server_ip
         self._vnc_api_port = api_server_port
         self._config_sections = conf_sections
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
@@ -70,6 +73,9 @@ class NeutronPluginInterface(object):
 
         self._cfgdb = None
         self._cfgdb_map = {}
+
+        global LOG
+        LOG = sandesh.logger()
 
     def _connect_to_db(self):
         """
@@ -626,7 +632,7 @@ class NeutronPluginInterface(object):
 
         try:
             cfgdb = self._get_user_cfgdb(context)
-            cfgdb.security_group_delete(sg['id'])
+            cfgdb.security_group_delete(context, sg['id'])
             LOG.debug("plugin_delete_sec_group(): " + pformat(sg['id']))
         except Exception as e:
             cgitb.Hook(format="text").handle(sys.exc_info())

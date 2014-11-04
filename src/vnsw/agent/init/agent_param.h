@@ -28,6 +28,11 @@ public:
         MODE_VMWARE
     };
 
+    enum VmwareMode {
+        ESXI_NEUTRON,
+        VCENTER
+    };
+
     struct PortInfo {
         PortInfo() : 
             name_(""), vrf_(""), addr_(0), prefix_(0), plen_(0), gw_(0) {}
@@ -89,6 +94,10 @@ public:
     std::string si_netns_command() const {return si_netns_command_;}
     const int si_netns_workers() const {return si_netns_workers_;}
     const int si_netns_timeout() const {return si_netns_timeout_;}
+    std::string si_haproxy_ssl_cert_path() const {
+        return si_haproxy_ssl_cert_path_;
+    }
+
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -124,6 +133,8 @@ public:
     bool isXenMode() const { return mode_ == MODE_XEN; }
     bool isKvmMode() const { return mode_ == MODE_KVM; }
     bool isVmwareMode() const { return mode_ == MODE_VMWARE; }
+    bool isVmwareVcenterMode() const { return vmware_mode_ == VCENTER; }
+    VmwareMode vmware_mode() const { return vmware_mode_; }
 
     void Init(const std::string &config_file,
               const std::string &program_name);
@@ -273,6 +284,8 @@ private:
     std::string si_netns_command_;
     int si_netns_workers_;
     int si_netns_timeout_;
+    std::string si_haproxy_ssl_cert_path_;
+    VmwareMode vmware_mode_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

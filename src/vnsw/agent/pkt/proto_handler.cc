@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "vr_defs.h"
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
@@ -38,9 +39,9 @@ void ProtoHandler::Send(uint16_t itf, uint16_t vrf, uint16_t cmd,
     agent_->pkt()->pkt_handler()->Send(hdr, pkt_info_->packet_buffer_ptr());
 }
 
-uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const MacAddress &src,
-                              const MacAddress &dest, const uint16_t proto,
-                              uint16_t vlan_id) {
+int ProtoHandler::EthHdr(char *buff, uint16_t len, const MacAddress &src,
+                         const MacAddress &dest, const uint16_t proto,
+                         uint16_t vlan_id) {
     struct ether_header *eth = (struct ether_header *)buff;
     uint16_t encap_len = sizeof(struct ether_header);
 
@@ -57,19 +58,38 @@ uint16_t ProtoHandler::EthHdr(char *buff, uint8_t len, const MacAddress &src,
 
     uint16_t *ptr = (uint16_t *) (buff + ETHER_ADDR_LEN * 2);
     if (vlan_id != VmInterface::kInvalidVlanId) {
-        *ptr = htons(ETH_P_8021Q);
+        *ptr = htons(ETHERTYPE_VLAN);
         ptr++;
-        *ptr = (vlan_id & 0xFFF);
+        *ptr = htons(vlan_id & 0xFFF);
+        ptr++;
     }
 
     *ptr = htons(proto);
     return encap_len;
 }
 
-void ProtoHandler::EthHdr(const MacAddress &src, const MacAddress &dest,
-                          const uint16_t proto) {
-    EthHdr((char *)pkt_info_->eth, sizeof(struct ether_header), src, dest, proto,
-           VmInterface::kInvalidVlanId);
+int ProtoHandler::EthHdr(const MacAddress &src, const MacAddress &dest,
+                         const uint16_t proto) {
+    return EthHdr((char *)pkt_info_->eth, sizeof(struct ether_header), src,
+                  dest, proto, VmInterface::kInvalidVlanId);
+}
+
+int ProtoHandler::EthHdr(char *buff, uint16_t len, const Interface *interface,
+                         const MacAddress &src, const MacAddress &dest,
+                         const uint16_t proto) {
+    uint16_t vlan_id = VmInterface::kInvalidVlanId;
+    if (interface && interface->type() == Interface::VM_INTERFACE) {
+        vlan_id = static_cast<const VmInterface *>(interface)->tx_vlan_id();
+    }
+
+    return EthHdr(buff, len, src, dest, proto, vlan_id);
+}
+
+int ProtoHandler::EthHdr(char *buff, uint16_t len, uint16_t ifindex,
+                         const MacAddress &src, const MacAddress &dest,
+                         const uint16_t proto) {
+    const Interface *intf = agent()->interface_table()->FindInterface(ifindex);
+    return EthHdr(buff, len, intf, src, dest, proto);
 }
 
 void ProtoHandler::VlanHdr(uint8_t *ptr, uint16_t tci) {
@@ -123,10 +143,10 @@ void ProtoHandler::Ip6Hdr(ip6_hdr *ip, uint16_t plen, uint8_t next_header,
 
 void ProtoHandler::FillUdpHdr(udphdr *udp, uint16_t len,
                               uint16_t src_port, uint16_t dest_port) {
-    udp->source = htons(src_port);
-    udp->dest = htons(dest_port);
-    udp->len = htons(len);
-    udp->check = 0;
+    udp->uh_sport = htons(src_port);
+    udp->uh_dport = htons(dest_port);
+    udp->uh_ulen = htons(len);
+    udp->uh_sum = 0;
 }
 
 uint16_t ProtoHandler::UdpHdr(udphdr *udp, uint16_t buf_len, uint16_t len,
@@ -159,7 +179,7 @@ uint16_t ProtoHandler::IcmpHdr(char *buff, uint16_t buf_len, uint8_t type,
 
     hdr->icmp_type = type;
     hdr->icmp_code = code;
-    assert(type == ICMP_DEST_UNREACH);
+    assert(type == ICMP_UNREACH);
     hdr->icmp_nextmtu = htons(word2);
     hdr->icmp_cksum = 0;
     return sizeof(struct icmp);
@@ -174,7 +194,7 @@ void ProtoHandler::UdpHdr(uint16_t len, const uint8_t *src, uint16_t src_port,
                           const uint8_t *dest, uint16_t dest_port,
                           uint8_t next_hdr) {
     FillUdpHdr(pkt_info_->transp.udp, len, src_port, dest_port);
-    pkt_info_->transp.udp->check = Ipv6Csum(src, dest, len, next_hdr,
+    pkt_info_->transp.udp->uh_sum = Ipv6Csum(src, dest, len, next_hdr,
                                             (uint16_t *)pkt_info_->transp.udp);
 }
 

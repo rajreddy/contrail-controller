@@ -5,6 +5,7 @@
 //  Created by Praveen K V
 //  Copyright (c) 2012 Contrail Systems. All rights reserved.
 //
+#include "base/os.h"
 #include <base/logging.h>
 #include <io/event_manager.h>
 #include <tbb/task.h>
@@ -82,7 +83,8 @@ protected:
         VrfAddReq(vrf_name_.c_str());
         PhysicalInterface::CreateReq(agent_->interface_table(),
                                 eth_name_,
-                                agent_->fabric_vrf_name(), false);
+                                agent_->fabric_vrf_name(),
+                                PhysicalInterface::FABRIC);
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }

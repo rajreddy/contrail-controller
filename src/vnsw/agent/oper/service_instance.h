@@ -67,6 +67,7 @@ public:
 
         std::string ip_addr_inside;
         std::string ip_addr_outside;
+        std::string gw_ip;
 
         int ip_prefix_len_inside;
         int ip_prefix_len_outside;
@@ -131,7 +132,7 @@ class ServiceInstanceTable : public AgentDBTable {
      * and the ServiceInstance DBEntry with the dependency manager.
      */
     virtual DBEntry *Add(const DBRequest *request);
-    virtual void Delete(DBEntry *entry, const DBRequest *request);
+    virtual bool Delete(DBEntry *entry, const DBRequest *request);
     virtual bool OnChange(DBEntry *entry, const DBRequest *request);
 
     /*

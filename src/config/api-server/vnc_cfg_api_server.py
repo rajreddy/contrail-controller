@@ -202,6 +202,8 @@ class VncApiServer(VncApiServerGen):
     """
     This is the manager class co-ordinating all classes present in the package
     """
+    _INVALID_NAME_CHARS = set('<>:')
+
     def __new__(cls, *args, **kwargs):
         obj = super(VncApiServer, cls).__new__(cls, *args, **kwargs)
         bottle.route('/', 'GET', obj.homepage_http_get)
@@ -235,6 +237,7 @@ class VncApiServer(VncApiServerGen):
         self._get_common = self._http_get_common
         self._put_common = self._http_put_common
         self._delete_common = self._http_delete_common
+        self._post_validate = self._http_post_validate
         self._post_common = self._http_post_common
 
         # Type overrides from generated code
@@ -348,7 +351,7 @@ class VncApiServer(VncApiServerGen):
         hostname = socket.gethostname()
         self._sandesh.init_generator(module_name, hostname,
                                      node_type_name, instance_id,
-                                     self._args.collectors, 
+                                     self._args.collectors,
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common'], self._disc)
@@ -420,7 +423,7 @@ class VncApiServer(VncApiServerGen):
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
         cpu_info = vnc_cpu_info.CpuInfo(
-            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req, 
+            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req,
             self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
@@ -731,6 +734,7 @@ class VncApiServer(VncApiServerGen):
                                          --logging_conf <logger-conf-file>
                                          --log_category test
                                          --log_file <stdout>
+                                         --trace_file /var/log/contrail/vnc_openstack.err
                                          --use_syslog
                                          --syslog_facility LOG_USER
                                          --disc_server_ip 127.0.0.1
@@ -748,7 +752,7 @@ class VncApiServer(VncApiServerGen):
         # Turn off help, so we print all options in response to -h
         conf_parser = argparse.ArgumentParser(add_help=False)
 
-        conf_parser.add_argument("-c", "--conf_file",
+        conf_parser.add_argument("-c", "--conf_file", action='append',
                                  help="Specify config file", metavar="FILE")
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
@@ -766,6 +770,7 @@ class VncApiServer(VncApiServerGen):
             'log_level': SandeshLevel.SYS_NOTICE,
             'log_category': '',
             'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'trace_file': '/var/log/contrail/vnc_openstack.err',
             'use_syslog': False,
             'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
             'logging_level': 'WARN',
@@ -805,7 +810,7 @@ class VncApiServer(VncApiServerGen):
         config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser({'admin_token': None})
-            config.read([args.conf_file])
+            config.read(args.conf_file)
             defaults.update(dict(config.items("DEFAULTS")))
             if 'multi_tenancy' in config.options('DEFAULTS'):
                 defaults['multi_tenancy'] = config.getboolean(
@@ -911,6 +916,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--log_file",
             help="Filename for the logs to be written to")
+        parser.add_argument(
+            "--trace_file",
+            help="Filename for the errors backtraces to be written to")
         parser.add_argument("--use_syslog",
             action="store_true",
             help="Use syslog for logging")
@@ -972,17 +980,17 @@ class VncApiServer(VncApiServerGen):
             self._extension_mgrs['resync'] = ExtensionManager(
                 'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['resourceApi'] = ExtensionManager(
                 'vnc_cfg_api.resourceApi',
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
             self._extension_mgrs['neutronApi'] = ExtensionManager(
                 'vnc_cfg_api.neutronApi',
                 api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
-                conf_sections=conf_sections)
+                conf_sections=conf_sections, sandesh=self._sandesh)
         except Exception as e:
             self.config_log("Exception in extension load: %s" %(str(e)),
                 level=SandeshLevel.SYS_ERR)
@@ -1012,25 +1020,53 @@ class VncApiServer(VncApiServerGen):
         self._db_conn = db_conn
     # end _db_connect
 
-    def _ensure_id_perms_present(self, obj_type, obj_dict):
+    def _ensure_id_perms_present(self, obj_type, obj_uuid, obj_dict):
         """
         Called at resource creation to ensure that id_perms is present in obj
         """
-        new_id_perms = self._get_default_id_perms(obj_type)
+        # retrieve object and permissions
+        id_perms = self._get_default_id_perms(obj_type)
 
         if (('id_perms' not in obj_dict) or
                 (obj_dict['id_perms'] is None)):
-            obj_dict['id_perms'] = new_id_perms
+            # Resource creation
+            if obj_uuid is None:
+                obj_dict['id_perms'] = id_perms
+                return
+            # Resource already exist
+            try:
+                obj_dict['id_perms'] = self._db_conn.uuid_to_obj_perms(obj_uuid)
+            except NoIdError:
+                obj_dict['id_perms'] = id_perms
+
             return
+
+        # retrieve the previous version of the id_perms
+        # from the database and update the id_perms with
+        # them.
+        if obj_uuid is not None:
+            try:
+                old_id_perms = self._db_conn.uuid_to_obj_perms(obj_uuid)
+                for field, value in old_id_perms.items():
+                    if value is not None:
+                        id_perms[field] = value
+            except NoIdError:
+                pass
+
+        # not all fields can be updated
+        if obj_uuid:
+            field_list = ['enable', 'description']
+        else:
+            field_list = ['enable', 'description', 'user_visible']
 
         # Start from default and update from obj_dict
         req_id_perms = obj_dict['id_perms']
-        for key in ('enable', 'description', 'user_visible'):
+        for key in field_list:
             if key in req_id_perms:
-                new_id_perms[key] = req_id_perms[key]
+                id_perms[key] = req_id_perms[key]
         # TODO handle perms present in req_id_perms
 
-        obj_dict['id_perms'] = new_id_perms
+        obj_dict['id_perms'] = id_perms
     # end _ensure_id_perms_present
 
     def _get_default_id_perms(self, obj_type):
@@ -1217,6 +1253,13 @@ class VncApiServer(VncApiServerGen):
                                            uuid.UUID(obj_uuid),
                                            persist=False)
 
+            # TODO remove this when the generator will be adapted to
+            # be consistent with the post method
+            obj_type = obj_type.replace('_', '-')
+
+            # Ensure object has at least default permissions set
+            self._ensure_id_perms_present(obj_type, obj_uuid, obj_dict)
+
             apiConfig = VncApiCommon()
             apiConfig.object_type = obj_type.replace('-', '_')
             apiConfig.identifier_name = fq_name_str
@@ -1280,6 +1323,26 @@ class VncApiServer(VncApiServerGen):
         return self._permissions.check_perms_write(request, parent_uuid)
     # end _http_delete_common
 
+    def _http_post_validate(self, obj_type=None, obj_dict=None):
+        if not obj_dict:
+            return
+
+        def _check_field_present(fname):
+            fval = obj_dict.get(fname)
+            if not fval:
+                bottle.abort(400, "Bad Request, no %s in POST body" %(fname))
+            return fval
+        fq_name = _check_field_present('fq_name')
+        if obj_type[:].replace('-','_') == 'route_target':
+            invalid_chars = self._INVALID_NAME_CHARS - set(':')
+        else:
+            invalid_chars = self._INVALID_NAME_CHARS
+        if any((c in invalid_chars) for c in fq_name[-1]):
+            bottle.abort(400,
+                "Bad Request, name has one of invalid chars %s"
+                %(invalid_chars))
+    # end _http_post_validate
+
     def _http_post_common(self, request, obj_type, obj_dict):
         # If not connected to zookeeper do not allow operations that
         # causes the state change
@@ -1307,8 +1370,8 @@ class VncApiServer(VncApiServerGen):
         except NoIdError:
             pass
 
-        # Ensure object has atleast default permissions set
-        self._ensure_id_perms_present(obj_type, obj_dict)
+        # Ensure object has at least default permissions set
+        self._ensure_id_perms_present(obj_type, None, obj_dict)
 
         # TODO check api + resource perms etc.
 

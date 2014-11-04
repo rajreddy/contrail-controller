@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "test/test_cmn_util.h"
 #include "ksync/ksync_sock_user.h"
 
@@ -489,7 +490,7 @@ int main(int argc, char *argv[]) {
         PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                                 FlowTableTest::eth_itf,
                                 Agent::GetInstance()->fabric_vrf_name(),
-                                false);
+                                PhysicalInterface::FABRIC);
         client->WaitForIdle();
     }
 

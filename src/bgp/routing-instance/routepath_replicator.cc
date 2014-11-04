@@ -276,7 +276,7 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                 }
             }
         }
-    } else if (group->empty(family())) {
+    } else if (!group->HasImportExportTables(family())) {
         // Delete the group if no tables are import/export this group
         server()->rtarget_group_mgr()->RemoveRtGroup(rt);
     }
@@ -477,6 +477,15 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         }
 
         if (super_set.empty()) continue;
+
+        // Add OriginVn when replicating self-originated routes from a VRF.
+        if (!rtinstance->IsDefaultRoutingInstance() &&
+            path->IsVrfOriginated() && rtinstance->virtual_network_index()) {
+            vn_index = rtinstance->virtual_network_index();
+            OriginVn origin_vn(server_->autonomous_system(), vn_index);
+            extcomm_ptr = server_->extcomm_db()->ReplaceOriginVnAndLocate(
+                extcomm_ptr.get(), origin_vn.GetExtCommunity());
+        }
 
         // To all destination tables.. call replicate
         BOOST_FOREACH(BgpTable *dest, super_set) {

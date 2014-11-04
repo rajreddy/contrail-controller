@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <algorithm>
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
@@ -3646,7 +3647,7 @@ int main(int argc, char *argv[]) {
         PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                                 eth_itf,
                                 Agent::GetInstance()->fabric_vrf_name(),
-                                false);
+                                PhysicalInterface::FABRIC);
         client->WaitForIdle();
     }
 

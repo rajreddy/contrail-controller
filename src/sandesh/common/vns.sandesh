@@ -15,11 +15,13 @@ const string SERVICE_DNSD = "contrail-dns"
 const string SERVICE_API_SERVER = "contrail-api:0"
 const string SERVICE_SCHEMA_TRANSFORMER = "contrail-schema"
 const string SERVICE_SVC_MONITOR = "contrail-svc-monitor"
+const string SERVICE_DEVICE_MANAGER = "contrail-device-manager"
 const string SERVICE_COLLECTOR = "contrail-collector"
 const string SERVICE_QUERY_ENGINE = "contrail-query-engine"
 const string SERVICE_OPSERVER = "contrail-analytics-api"
 const string SERVICE_DISCOVERY = "contrail-discovery:0"
 const string SERVICE_STORAGE_STATS_MGR = "contrail-storage-stats"
+const string SERVICE_IPMI_STATS_MGR = "contrail-ipmi-stats"
 
 // NodeMgr names
 const string SERVICE_COMPUTE_NODE_MGR = "contrail-vrouter-nodemgr"
@@ -43,12 +45,14 @@ const u16 HttpPortVRouterNodemgr = 8102
 const u16 HttpPortDatabaseNodemgr = 8103
 const u16 HttpPortAnalyticsNodemgr = 8104
 const u16 HttpPortStorageStatsmgr = 8105
+const u16 HttpPortIpmiStatsmgr = 8106
 
 const u16 HttpPortControl = 8083
 const u16 HttpPortApiServer = 8084
 const u16 HttpPortAgent = 8085
 const u16 HttpPortSchemaTransformer = 8087
 const u16 HttpPortSvcMonitor = 8088
+const u16 HttpPortPrcManager = 8096
 const u16 HttpPortCollector = 8089
 const u16 HttpPortOpserver = 8090
 const u16 HttpPortQueryEngine = 8091
@@ -91,12 +95,14 @@ const map<string, u16> ServiceHttpPortMap = {
     SERVICE_API_SERVER : HttpPortApiServer,
     SERVICE_SCHEMA_TRANSFORMER : HttpPortSchemaTransformer,
     SERVICE_SVC_MONITOR : HttpPortSvcMonitor,
+    SERVICE_DEVICE_MANAGER : HttpPortPrcManager,
     SERVICE_CONFIG_NODE_MGR : HttpPortConfigNodemgr,
     SERVICE_ANALYTICS_NODE_MGR : HttpPortAnalyticsNodemgr,
     SERVICE_COMPUTE_NODE_MGR : HttpPortVRouterNodemgr,
     SERVICE_CONTROL_NODE_MGR : HttpPortControlNodemgr,
     SERVICE_DATABASE_NODE_MGR : HttpPortDatabaseNodemgr,
     SERVICE_STORAGE_STATS_MGR : HttpPortStorageStatsmgr,
+    SERVICE_IPMI_STATS_MGR : HttpPortIpmiStatsmgr,
 }
 
 const list<string> NodeUVEImplementedServices = [
@@ -108,6 +114,7 @@ const list<string> NodeUVEImplementedServices = [
     SERVICE_API_SERVER,
     SERVICE_SCHEMA_TRANSFORMER,
     SERVICE_SVC_MONITOR,
+    SERVICE_DEVICE_MANAGER,
 ]
 
 enum Module {
@@ -119,6 +126,7 @@ enum Module {
     COLLECTOR,
     QUERY_ENGINE,
     SVC_MONITOR,
+    DEVICE_MANAGER,
     DNS,
     DISCOVERY_SERVICE,
     IFMAP_SERVER,
@@ -130,30 +138,33 @@ enum Module {
     WEBUI_NODE_MGR,
     COMPUTE_NODE_MGR,
     STORAGE_STATS_MGR,
+    IPMI_STATS_MGR,
     CONTRAIL_SNMP_COLLECTOR,
     CONTRAIL_TOPOLOGY,
     MAX_MODULE,
 }
 
-const string MODULE_CONTROL_NODE_NAME = "ControlNode"
-const string MODULE_VROUTER_AGENT_NAME = "VRouterAgent"
-const string MODULE_API_SERVER_NAME = "ApiServer"
-const string MODULE_SCHEMA_TRANSFORMER_NAME = "Schema"
-const string MODULE_OPSERVER_NAME = "OpServer"
-const string MODULE_COLLECTOR_NAME = "Collector"
-const string MODULE_QUERY_ENGINE_NAME = "QueryEngine"
-const string MODULE_SVC_MONITOR_NAME = "ServiceMonitor"
-const string MODULE_DNS_NAME = "DnsAgent"
-const string MODULE_DISCOVERY_SERVICE_NAME = "DiscoveryService"
+const string MODULE_CONTROL_NODE_NAME = SERVICE_CONTROL_NODE
+const string MODULE_VROUTER_AGENT_NAME = SERVICE_VROUTER_AGENT
+const string MODULE_API_SERVER_NAME = "contrail-api"
+const string MODULE_SCHEMA_TRANSFORMER_NAME = SERVICE_SCHEMA_TRANSFORMER
+const string MODULE_OPSERVER_NAME = SERVICE_OPSERVER
+const string MODULE_COLLECTOR_NAME = SERVICE_COLLECTOR
+const string MODULE_QUERY_ENGINE_NAME = SERVICE_QUERY_ENGINE
+const string MODULE_SVC_MONITOR_NAME = SERVICE_SVC_MONITOR
+const string MODULE_DEVICE_MANAGER_NAME = "PrcManager"
+const string MODULE_DNS_NAME = "contrail-dns"
+const string MODULE_DISCOVERY_SERVICE_NAME = "contrail-discovery"
 const string MODULE_IFMAP_SERVER_NAME = "IfmapServer"
 const string MODULE_XMPP_SERVER_NAME = "XmppServer"
-const string MODULE_ANALYTICS_NODE_MGR_NAME = "Contrail-Analytics-Nodemgr"
-const string MODULE_CONTROL_NODE_MGR_NAME = "Contrail-Control-Nodemgr"
-const string MODULE_CONFIG_NODE_MGR_NAME = "Contrail-Config-Nodemgr"
-const string MODULE_DATABASE_NODE_MGR_NAME = "Contrail-Database-Nodemgr"
+const string MODULE_ANALYTICS_NODE_MGR_NAME = SERVICE_ANALYTICS_NODE_MGR
+const string MODULE_CONTROL_NODE_MGR_NAME = SERVICE_CONTROL_NODE_MGR
+const string MODULE_CONFIG_NODE_MGR_NAME = SERVICE_CONFIG_NODE_MGR
+const string MODULE_DATABASE_NODE_MGR_NAME = SERVICE_DATABASE_NODE_MGR
 const string MODULE_WEBUI_NODE_MGR_NAME = "Contrail-WebUI-Nodemgr"
-const string MODULE_COMPUTE_NODE_MGR_NAME = "Contrail-Vrouter-Nodemgr"
+const string MODULE_COMPUTE_NODE_MGR_NAME = SERVICE_COMPUTE_NODE_MGR
 const string MODULE_STORAGE_STATS_MGR_NAME = "Storage-Stats-mgr"
+const string MODULE_IPMI_STATS_MGR_NAME = "Ipmi-Stats-mgr"
 const string MODULE_CONTRAIL_SNMP_COLLECTOR_NAME = "contrail-snmp-collector"
 const string MODULE_CONTRAIL_TOPOLOGY_NAME = "contrail-topology"
 
@@ -166,6 +177,7 @@ const map<Module, string> ModuleNames = {
     Module.COLLECTOR          : MODULE_COLLECTOR_NAME,
     Module.QUERY_ENGINE       : MODULE_QUERY_ENGINE_NAME,
     Module.SVC_MONITOR        : MODULE_SVC_MONITOR_NAME,
+    Module.DEVICE_MANAGER        : MODULE_DEVICE_MANAGER_NAME,
     Module.DNS                : MODULE_DNS_NAME,
     Module.DISCOVERY_SERVICE  : MODULE_DISCOVERY_SERVICE_NAME,
     Module.IFMAP_SERVER       : MODULE_IFMAP_SERVER_NAME,
@@ -177,6 +189,7 @@ const map<Module, string> ModuleNames = {
     Module.WEBUI_NODE_MGR     : MODULE_WEBUI_NODE_MGR_NAME,
     Module.COMPUTE_NODE_MGR   : MODULE_COMPUTE_NODE_MGR_NAME,
     Module.STORAGE_STATS_MGR  : MODULE_STORAGE_STATS_MGR_NAME,
+    Module.IPMI_STATS_MGR     : MODULE_IPMI_STATS_MGR_NAME,
     Module.CONTRAIL_SNMP_COLLECTOR  : MODULE_CONTRAIL_SNMP_COLLECTOR_NAME,
     Module.CONTRAIL_TOPOLOGY  : MODULE_CONTRAIL_TOPOLOGY_NAME,
 }
@@ -190,6 +203,7 @@ const map<string, Module> ModuleIds = {
     MODULE_COLLECTOR_NAME              : Module.COLLECTOR,
     MODULE_QUERY_ENGINE_NAME           : Module.QUERY_ENGINE,
     MODULE_SVC_MONITOR_NAME            : Module.SVC_MONITOR,
+    MODULE_DEVICE_MANAGER_NAME            : Module.DEVICE_MANAGER,
     MODULE_DNS_NAME                    : Module.DNS,
     MODULE_DISCOVERY_SERVICE_NAME      : Module.DISCOVERY_SERVICE
     MODULE_IFMAP_SERVER_NAME           : Module.IFMAP_SERVER,
@@ -201,6 +215,7 @@ const map<string, Module> ModuleIds = {
     MODULE_WEBUI_NODE_MGR_NAME         : Module.WEBUI_NODE_MGR,
     MODULE_COMPUTE_NODE_MGR_NAME       : Module.COMPUTE_NODE_MGR,
     MODULE_STORAGE_STATS_MGR_NAME      : Module.STORAGE_STATS_MGR,
+    MODULE_IPMI_STATS_MGR_NAME         : Module.IPMI_STATS_MGR,
     MODULE_CONTRAIL_SNMP_COLLECTOR_NAME  : Module.CONTRAIL_SNMP_COLLECTOR,
     MODULE_CONTRAIL_TOPOLOGY_NAME      : Module.CONTRAIL_TOPOLOGY,
 }
@@ -215,6 +230,7 @@ enum NodeType {
     WEBUI,
     DATABASE,
     OPENSTACK,
+    SERVERMGR,
 }
 
 const map<NodeType, string> NodeTypeNames = {
@@ -226,6 +242,7 @@ const map<NodeType, string> NodeTypeNames = {
     NodeType.WEBUI           : "WebUI",
     NodeType.DATABASE        : "Database",
     NodeType.OPENSTACK       : "OpenStack",
+    NodeType.SERVERMGR       : "ServerMgr",
 }
 
 const map <Module, NodeType> Module2NodeType = {
@@ -237,6 +254,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.COLLECTOR          : NodeType.ANALYTICS,
     Module.QUERY_ENGINE       : NodeType.ANALYTICS,
     Module.SVC_MONITOR        : NodeType.CONFIG,
+    Module.DEVICE_MANAGER        : NodeType.CONFIG,
     Module.DNS                : NodeType.CONTROL,
     Module.DISCOVERY_SERVICE  : NodeType.CONFIG,
     Module.IFMAP_SERVER       : NodeType.CONFIG,
@@ -248,6 +266,7 @@ const map <Module, NodeType> Module2NodeType = {
     Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
     Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
     Module.STORAGE_STATS_MGR  : NodeType.COMPUTE,
+    Module.IPMI_STATS_MGR     : NodeType.SERVERMGR,
     Module.CONTRAIL_SNMP_COLLECTOR : NodeType.ANALYTICS,
     Module.CONTRAIL_TOPOLOGY  : NodeType.ANALYTICS,
 }
@@ -325,10 +344,12 @@ const map<Module, list<Category>> ModuleCategoryMap = {
     Module.QUERY_ENGINE       : [Category.DEFAULT,
                                 ],
     Module.SVC_MONITOR        : [Category.DEFAULT,
-                                ], 
+                                ],
+    Module.DEVICE_MANAGER        : [Category.DEFAULT,
+                                ],
     Module.DNS                : [Category.DEFAULT,
                                  Category.DNSAGENT,
-                                ], 
+                                ],
     Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
                                  Category.DISCOVERY,
                                 ], 

@@ -166,3 +166,8 @@ bool VizCollector::Init() {
     return db_initializer_->Initialize();
 }
 
+void VizCollector::SendProtobufCollectorStatistics() {
+    if (protobuf_collector_) {
+        protobuf_collector_->SendStatistics(name_);
+    }
+}

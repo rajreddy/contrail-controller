@@ -324,15 +324,12 @@ void PathPreferenceIntfState::DeleteOldEntries() {
     }
 }
 
+/* Updates the preference of routes dependent on given IP/prefix */
 void PathPreferenceIntfState::UpdateDependentRoute(std::string vrf_name,
-                                                    IpAddress ip, uint32_t plen,
-                                                    bool traffic_seen,
-                                                    PathPreferenceModule
-                                                    *path_preference_module) {
-    if (ip.is_v6()) {
-        //TODO:IPv6 handling
-        return;
-    }
+                                                   Ip4Address ip, uint32_t plen,
+                                                   bool traffic_seen,
+                                                   PathPreferenceModule
+                                                   *path_preference_module) {
     if (instance_ip_.vrf_name_ != vrf_name ||
         instance_ip_.plen_ != plen ||
         instance_ip_.ip_ != ip) {
@@ -406,10 +403,6 @@ void PathPreferenceIntfState::Notify() {
             rt.plen_ = 32;
             rt.ip_ = it->floating_ip_.to_v4();
             Insert(rt, traffic_seen);
-        } else if (it->floating_ip_.is_v6()) {
-            rt.plen_ = 128;
-            rt.ip_ = it->floating_ip_.to_v6();
-            Insert(rt, traffic_seen);
         }
     }
 
@@ -432,14 +425,16 @@ void PathPreferenceIntfState::Notify() {
     VmInterface::StaticRouteSet::const_iterator static_rt_it =
         static_rt_list.begin();
     for (;static_rt_it != static_rt_list.end(); ++static_rt_it) {
-        RouteAddrList rt;
-        if (static_rt_it->vrf_ == "") {
-            continue;
+        if (static_rt_it->addr_.is_v4()) {
+            RouteAddrList rt;
+            if (static_rt_it->vrf_ == "") {
+                continue;
+            }
+            rt.plen_ = static_rt_it->plen_;
+            rt.ip_ = static_rt_it->addr_;
+            rt.vrf_name_ = static_rt_it->vrf_;
+            Insert(rt, traffic_seen);
         }
-        rt.plen_ = static_rt_it->plen_;
-        rt.ip_ = static_rt_it->addr_;
-        rt.vrf_name_ = static_rt_it->vrf_;
-        Insert(rt, traffic_seen);
     }
     //Delete all old entries not present in new list
     DeleteOldEntries();
@@ -563,13 +558,32 @@ void PathPreferenceVrfState::Notify(DBTablePartBase *partition,
     PathPreferenceState *state =
         static_cast<PathPreferenceState *>(e->GetState(rt_table_, id_));
     if (e->IsDeleted()) {
-        e->ClearState(rt_table_, id_);
-        delete state;
+        if (state) {
+            e->ClearState(rt_table_, id_);
+            delete state;
+        }
+
         return;
     }
 
     InetUnicastRouteEntry *rt =
                 static_cast<InetUnicastRouteEntry *>(e);
+
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+          it != rt->GetPathList().end(); ++it) {
+        const AgentPath *path =
+             static_cast<const AgentPath *>(it.operator->());
+        if (path->peer() == NULL) {
+            continue;
+        }
+        if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+            continue;
+        }
+        if (path->path_preference().static_preference() == true) {
+            return;
+        }
+    }
+
     if (!state) {
         state = new PathPreferenceState(agent_, rt);
     }
@@ -636,7 +650,8 @@ bool PathPreferenceModule::DequeueEvent(PathPreferenceEventContainer event) {
         vm_intf->GetState(agent_->interface_table(), intf_id_));
     PathPreferenceIntfState *intf_state =
         const_cast<PathPreferenceIntfState *>(cintf_state);
-    intf_state->UpdateDependentRoute(vrf->GetName(), event.ip_,
+    /* Only events with IPv4 IP is enqueued now */
+    intf_state->UpdateDependentRoute(vrf->GetName(), event.ip_.to_v4(),
                                      event.plen_, true, this);
     return true;
 }
@@ -651,6 +666,14 @@ void PathPreferenceModule::EnqueueTrafficSeen(Ip4Address ip, uint32_t plen,
     }
 
     const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+
+
+    //If the local preference is set by config, we dont identify Active
+    //node dynamically
+    if (vm_intf->local_preference() != VmInterface::INVALID) {
+        return;
+    }
+
     const VrfEntry *vrf = agent_->vrf_table()->FindVrfFromId(vrf_index);
     if (vrf == NULL) {
         return;

@@ -19,6 +19,7 @@
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_mirror.h>
 #include <cfg/discovery_agent.h>
+#include <cmn/agent.h>
 
 #include <oper/operdb_init.h>
 #include <oper/interface_common.h>
@@ -479,4 +480,15 @@ void Agent::set_oper_db(OperDB *oper_db) {
 
 DomainConfig *Agent::domain_config_table() const {
     return oper_db_->domain_config_table();
+}
+
+bool Agent::isVmwareMode() const {
+    return params_->isVmwareMode();
+}
+
+bool Agent::isVmwareVcenterMode() const {
+    if (isVmwareMode() == false)
+        return false;
+
+    return params_->isVmwareVcenterMode();
 }

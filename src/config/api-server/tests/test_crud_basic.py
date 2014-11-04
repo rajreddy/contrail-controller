@@ -266,10 +266,6 @@ class TestNetAddrAlloc(object):
         # gevent.joinall([self._api_svr])
     # end tearDown
 
-    def assertThat(self, *args):
-        super(TestNetAddrAlloc, self).assertThat(*args)
-    # end assertThat
-
     def test_ip_alloc_on_net(self):
         # create subnet on default-virtual-network, auto allocate ip
         ipam_fixt = self.useFixture(NetworkIpamTestFixtureGen(self._vnc_lib))
@@ -422,7 +418,6 @@ class TestNetAddrAlloc(object):
     #end test_alloc_with_subnet_id
 
 # end class TestNetAddrAlloc
-
 
 class DemoFixture(object):
 #class DemoFixture(fixtures.Fixture):
@@ -691,7 +686,7 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
 
             logger.info("Creating objects to hit max rabbit pending.")
             # every create updates project quota
-            test_objs = self._create_test_objects(count=max_pend_upd/2+1)
+            test_objs = self._create_test_objects(count=max_pend_upd)
 
             def asserts_on_max_pending():
                 self.assertEqual(e.status_code, 500)
@@ -850,13 +845,43 @@ class TestVncCfgApiServer(test_case.ApiServerTestCase):
         ip_allocated = fip_fixt.getObj().floating_ip_address
 
         logger.info("Creating auto-alloc instance-ip, expecting an error")
-        with self.assertRaises(cfgm_common.exceptions.PermissionDenied):
+        with ExpectedException(PermissionDenied) as e:
             iip_fixt = self.useFixture(
                 InstanceIpTestFixtureGen(
                     self._vnc_lib, 'iip1', auto_prop_val=False,
                     instance_ip_address=ip_allocated,
                     virtual_network_refs=[vn_fixt.getObj()]))
     # end test_floatingip_as_instanceip
+
+    def test_name_with_blacklist_char(self):
+        vn_name = self.id()+'-vn<1>'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s expecting failure' %(vn_name))
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.virtual_network_create(vn_obj)
+
+        vn_name = self.id()+'-vn'
+        vn_obj = VirtualNetwork(vn_name)
+        self._add_detail('Creating network with name %s expecting success' %(vn_name))
+        self._vnc_lib.virtual_network_create(vn_obj)
+        self.assertTill(self.ifmap_has_ident, obj=vn_obj)
+
+        rt_name = self.id()+'-route-target<1>'
+        rt_obj = RouteTarget(rt_name)
+        self._add_detail('Creating network with name %s expecting failure' %(rt_name))
+        with ExpectedException(BadRequest) as e:
+            self._vnc_lib.route_target_create(rt_obj)
+
+        rt_name = self.id()+'-route-target:1'
+        rt_obj = RouteTarget(rt_name)
+        self._add_detail('Creating network with name %s expecting success' %(rt_name))
+        self._vnc_lib.route_target_create(rt_obj)
+        self.assertTill(self.ifmap_has_ident, obj=rt_obj)
+
+        self._vnc_lib.virtual_network_delete(id=vn_obj.uuid)
+        self._vnc_lib.route_target_delete(id=rt_obj.uuid)
+    # end test_name_with_blacklist_char
+
 # end class TestVncCfgApiServer
 
 class TestLocalAuth(test_case.ApiServerTestCase):

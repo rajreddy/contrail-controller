@@ -39,9 +39,10 @@ def lineno():
 
 
 # import from package for non-api server test or directly from file
-sys.path.insert(0, '../../../../build/debug/api-lib/vnc_api')
+sys.path.insert(0, '../../../../build/production/api-lib/vnc_api')
 sys.path.insert(0, '../../../../distro/openstack/')
-sys.path.append('../../../../build/debug/config/api-server/vnc_cfg_api_server')
+sys.path.append('../../../../build/production/config/api-server/vnc_cfg_api_server')
+
 import vnc_cfg_api_server
 if not hasattr(vnc_cfg_api_server, 'main'):
     from vnc_cfg_api_server import vnc_cfg_api_server
@@ -162,6 +163,7 @@ def setup_extra_flexmock(mocks):
 # end setup_extra_flexmock
 
 def setup_common_flexmock():
+    flexmock(cfgm_common.vnc_cpu_info.CpuInfo, __init__=stub)
     flexmock(novaclient.client, Client=FakeNovaClient.initialize)
     flexmock(ifmap_client.client, __init__=FakeIfmapClient.initialize,
              call=FakeIfmapClient.call,
@@ -344,7 +346,7 @@ class TestCase(testtools.TestCase, fixtures.TestWithFixtures):
     def tearDown(self):
         self._api_svr_greenlet.kill()
         self._api_server._db_conn._msgbus._dbe_publish_greenlet.kill()
-        self._api_server._db_conn._msgbus._dbe_oper_subscribe_greenlet.kill()
+        self._api_server._db_conn._msgbus._subscribe_greenlet.kill()
         FakeIfmapClient.reset()
         cov_handle.stop()
         cov_handle.report(file=open('covreport.txt', 'w'))

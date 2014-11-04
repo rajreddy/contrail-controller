@@ -8,6 +8,16 @@ class VncError(Exception):
     pass
 # end class VncError
 
+class ServiceUnavailableError(VncError):
+    def __init__(self, code):
+        self._reason_code = code
+    # end __init__
+
+    def __str__(self):
+        return 'Service unavailable time out due to: %s' % (str(self._reason_code))
+    # end __str__
+# end class ServiceUnavailableError
+
 class TimeOutError(VncError):
     def __init__(self, code):
         self._reason_code = code
@@ -17,6 +27,18 @@ class TimeOutError(VncError):
         return 'Timed out due to: %s' % (str(self._reason_code))
     # end __str__
 # end class TimeOutError
+
+
+class BadRequest(Exception):
+    def __init__(self, status_code, content):
+        self.status_code = status_code
+        self.content = content
+    # end __init__
+
+    def __str__(self):
+        return 'HTTP Status: %s Content: %s' % (self.status_code, self.content)
+    # end __str__
+# end class BadRequest
 
 
 class NoIdError(VncError):
@@ -95,3 +117,8 @@ class HttpError(VncError):
 
 class AmbiguousParentError(VncError):
     pass
+
+
+class InvalidSessionID(VncError):
+    pass
+# end InvalidSessionID

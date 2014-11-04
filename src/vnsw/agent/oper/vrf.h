@@ -74,9 +74,8 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    InetUnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
+    InetUnicastRouteEntry *GetUcRoute(const IpAddress &addr) const;
     InetUnicastRouteEntry *GetUcRoute(const InetUnicastRouteEntry &rt_key) const;
-    InetUnicastRouteEntry *GetUcRoute(const Ip6Address &addr) const;
 
     LifetimeActor *deleter();
     void SendObjectLog(AgentLogEvent::type event) const;
@@ -135,7 +134,7 @@ public:
     void VrfReuse(std::string name);
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Delete(DBEntry *entry, const DBRequest *req);
     virtual void OnZeroRefcount(AgentDBEntry *e);
 
     // Create a VRF entry with given name
