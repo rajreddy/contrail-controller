@@ -404,6 +404,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="subnet" type="SubnetType"/>
         <xsd:element name="default-gateway" type="IpAddressType"/>
+        <xsd:element name="dns-server-address" type="IpAddressType"/>
         <xsd:element name="subnet-uuid" type="xsd:string"/>
         <xsd:element name="enable-dhcp" type="xsd:boolean" default="true"/>
         <xsd:element name="dns-nameservers" type="xsd:string" maxOccurs="unbounded"/>
@@ -544,6 +545,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="plugin-tuning" type="PluginProperties"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('plugin-tuning', 'global-system-config') -->
+
+<xsd:element name="ibgp-auto-mesh" type="xsd:boolean"/>
+<!-- Automatically create an iBGP mesh if set to True -->
+<!--#IFMAP-SEMANTICS-IDL
+     Property('ibgp-auto-mesh', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -896,6 +902,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('instance-ip-virtual-machine-interface',
           'instance-ip', 'virtual-machine-interface', ['ref']) -->
 
+<xsd:element name="subnet" type="ifmap:IdentityType"/>
+<xsd:element name="subnet-ip-prefix" type="SubnetType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('subnet-ip-prefix', 'subnet') -->
+<xsd:element name="subnet-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('subnet-virtual-machine-interface',
+          'subnet', 'virtual-machine-interface', ['ref']) -->
+
 <xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
 <xsd:element name="floating-ip-pool-prefixes" type="FloatingIpPoolType"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -990,6 +1005,44 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Link('physical-interface-logical-interface',
           'physical-interface', 'logical-interface', ['has']) -->
 
+<xsd:element name="logical-interface-vlan-tag" type="xsd:integer"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('logical-interface-vlan-tag', 'logical-interface') -->
+
+<xsd:simpleType name="LogicalInterfaceType">
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='l2'/>
+         <xsd:enumeration value='l3'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:element name="logical-interface-type" type="LogicalInterfaceType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('logical-interface-type', 'logical-interface') -->
+
+<xsd:element name="physical-router-management-ip" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-management-ip', 'physical-router') -->
+
+<xsd:element name="physical-router-dataplane-ip" type="smi:IpAddress"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-dataplane-ip', 'physical-router') -->
+
+<xsd:element name="physical-router-vendor-name" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-vendor-name', 'physical-router') -->
+
+<xsd:complexType name="UserCredentials">
+    <xsd:all>
+        <xsd:element name="username" type="xsd:string"/>
+        <xsd:element name="password" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="physical-router-user-credentials" type="UserCredentials" maxOccurs="unbounded"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('physical-router-user-credentials', 'physical-router') -->
+
 <xsd:element name="logical-interface-virtual-machine-interface"/>
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-interface-virtual-machine-interface',
@@ -1063,9 +1116,35 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 </xsd:simpleType>
 
 <xsd:simpleType name="ServiceVirtualizationType" default="virtual-machine">
+    <xsd:annotation>
+      <xsd:documentation>
+        ServiceVirtualizationType defines how a service instance is
+        managed.
+        * virtual-machine instances are managed by openstack nova.
+        * network-namespace instances are scheduled by service-monitor
+        into a functioning virtual-router in the cluster.
+        * vrouter-instance type instance are scheduled in a specific
+        virtual-router according to the virtual-router-id parameter in
+        the service instance.
+      </xsd:documentation>
+    </xsd:annotation>
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="virtual-machine"/>
         <xsd:enumeration value="network-namespace"/>
+        <xsd:enumeration value="vrouter-instance"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name='VRouterInstanceType'>
+    <xsd:annotation>
+        <xsd:documentation>
+	  For vrouter managed instances, this indicates the mechanism used
+	  to manage the instance.
+	</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='libvirt-qemu'/>
+	<xsd:enumeration value='docker'/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -1080,6 +1159,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='ordered-interfaces' type='xsd:boolean' default='false'/>
         <xsd:element name='service-virtualization-type' type='ServiceVirtualizationType'/>
         <xsd:element name='availability-zone-enable' type='xsd:boolean' default='false'/>
+	<xsd:element name='vrouter-instance-type' type='VRouterInstanceType'/>
+        <xsd:element name='instance-data' type='xsd:string'>
+          <xsd:annotation>
+            <xsd:documentation>
+              Opaque string (typically in json format) used to spawn a
+              vrouter-instance.
+            </xsd:documentation>
+          </xsd:annotation>
+        </xsd:element>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -1095,6 +1183,14 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
         <xsd:element name="ha-mode" type="AddressMode"/>
+        <xsd:element name='virtual-router-id' type='xsd:string'>
+          <xsd:annotation>
+            <xsd:documentation>
+              The uuid of a virtual-router object in which to spawn a
+              service-instance of type vrouter-instance.
+            </xsd:documentation>
+          </xsd:annotation>
+        </xsd:element>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -1214,6 +1310,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL
      Link('logical-router-gateway',
           'logical-router', 'virtual-network', ['ref']) -->
+
+<xsd:element name="logical-router-service-instance"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-service-instance',
+          'logical-router', 'service-instance', ['ref']) -->
 
 <!-- Neutron extensions -->
 <xsd:include schemaLocation='loadbalancer.xsd'/>

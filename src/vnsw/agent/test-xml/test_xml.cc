@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
  */
+#include "base/os.h"
 #include <iostream>
 #include <fstream>
 #include <pugixml/pugixml.hpp>
@@ -59,7 +60,8 @@ static void NovaIntfAdd(bool op_delete, const uuid &id, const IpAddress &ip,
     CfgIntData *data = new CfgIntData();
     req.data.reset(data);
     data->Init(vm_uuid, vn_uuid, MakeUuid(0), name, ip,
-               Ip6Address::v4_compatible(ip.to_v4()), mac, vm_name, 0,
+               Ip6Address::v4_compatible(ip.to_v4()), mac, vm_name,
+               VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
                CfgIntEntry::CfgIntVMPort, 0);
 
     Agent::GetInstance()->interface_config_table()->Enqueue(&req);

@@ -13,6 +13,8 @@
 
 class BgpRoute;
 class RTargetRoute;
+class MemberTableList;
+class ShowRtGroupInfo;
 
 class RtGroupInterestedPeerSet : public BitSet {
 };
@@ -61,14 +63,7 @@ public:
 
     RtGroup(const RouteTarget &rt);
     const RouteTarget &rt();
-    bool empty(Address::Family family) const;
-
-    const RtGroupMembers &GetImportMembers() {
-        return import_;
-    }
-    const RtGroupMembers &GetExportMembers() {
-        return export_;
-    }
+    bool MayDelete() const;
 
     const RtGroupMemberList GetImportTables(Address::Family family) const;
     const RtGroupMemberList GetExportTables(Address::Family family) const;
@@ -77,19 +72,32 @@ public:
     bool AddExportTable(Address::Family family, BgpTable *tbl);
     bool RemoveImportTable(Address::Family family, BgpTable *tbl);
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
+    bool HasImportExportTables(Address::Family family) const;
+    bool HasImportExportTables() const;
 
     void AddDepRoute(int part_id, BgpRoute *rt);
     void RemoveDepRoute(int part_id, BgpRoute *rt);
-    bool RouteDepListEmpty();
-    const RTargetDepRouteList &DepRouteList() const;
+    void NotifyDepRoutes(int part_id);
+    bool HasDepRoutes() const;
 
-    const InterestedPeerList &PeerList() const;
-    const RtGroupInterestedPeerSet& GetInterestedPeers() const;
+    const RtGroupInterestedPeerSet &GetInterestedPeers() const;
     void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
     void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
-    bool peer_list_empty() const;
+    bool HasInterestedPeers() const;
+    bool HasInterestedPeer(const std::string &name) const;
+
+    void FillShowInfo(ShowRtGroupInfo *info) const;
+    void FillShowPeerInfo(ShowRtGroupInfo *info) const;
+    void FillShowSummaryInfo(ShowRtGroupInfo *info) const;
 
 private:
+    void FillMemberTables(const RtGroupMembers &rt_members,
+        std::vector<MemberTableList> *member_list) const;
+    void FillInterestedPeers(std::vector<std::string> *interested_peers) const;
+    void FillDependentRoutes(std::vector<std::string> *rtlist) const;
+    void FillShowInfoCommon(
+        ShowRtGroupInfo *info, bool fill_peers, bool fill_routes) const;
+
     RouteTarget rt_;
     RtGroupMembers import_;
     RtGroupMembers export_;

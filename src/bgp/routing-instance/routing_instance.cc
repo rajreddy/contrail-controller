@@ -525,6 +525,10 @@ void RoutingInstance::UpdateConfig(BgpServer *server,
     bool notify_routes = false;
     if (virtual_network_allow_transit_ != cfg->virtual_network_allow_transit())
         notify_routes = true;
+    if (virtual_network_ != cfg->virtual_network())
+        notify_routes = true;
+    if (virtual_network_index_ != cfg->virtual_network_index())
+        notify_routes = true;
 
     // Trigger notification of all routes in each table.
     if (notify_routes) {
@@ -743,6 +747,17 @@ bool RoutingInstance::deleted() {
     return deleter()->IsDeleted();
 }
 
+const string RoutingInstance::GetVirtualNetworkName() const {
+    if (!virtual_network_.empty())
+        return virtual_network_;
+    size_t pos = name_.rfind(':');
+    if (pos == string::npos) {
+        return name_;
+    } else {
+        return name_.substr(0, pos);
+    }
+}
+
 const string RoutingInstance::virtual_network() const {
     return virtual_network_.empty() ? "unresolved" : virtual_network_;
 }
@@ -756,6 +771,10 @@ bool RoutingInstance::virtual_network_allow_transit() const {
 }
 
 BgpServer *RoutingInstance::server() {
+    return mgr_->server();
+}
+
+const BgpServer *RoutingInstance::server() const {
     return mgr_->server();
 }
 

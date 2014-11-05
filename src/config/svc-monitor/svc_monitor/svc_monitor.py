@@ -15,6 +15,7 @@ from cfgm_common.zkclient import ZookeeperClient
 import requests
 import ConfigParser
 import cgitb
+import cStringIO
 import argparse
 import socket
 
@@ -24,6 +25,7 @@ import os
 import logging
 import logging.handlers
 
+from cfgm_common import exceptions
 from cfgm_common.imid import *
 from cfgm_common import importutils
 from cfgm_common import svc_info
@@ -69,22 +71,16 @@ class SvcMonitor(object):
         self.db.init_database()
 
         # rotating log file for catchall errors
-        self._err_file = '/var/log/contrail/svc-monitor.err'
-        self._tmp_file = '/var/log/contrail/svc-monitor.tmp'
-        try:
-            with open(self._err_file, 'a'):
-                pass
-            with open(self._tmp_file, 'a'):
-                pass
-        except IOError:
-            self._err_file = './svc-monitor.err'
-            self._tmp_file = './svc-monitor.tmp'
+        self._err_file = self._args.trace_file
         self._svc_err_logger = logging.getLogger('SvcErrLogger')
         self._svc_err_logger.setLevel(logging.ERROR)
-        handler = logging.handlers.RotatingFileHandler(
-            self._err_file, maxBytes=64*1024, backupCount=2)
-        self._svc_err_logger.addHandler(handler)
-
+        try:
+            with open(self._err_file, 'a'):
+                handler = logging.handlers.RotatingFileHandler(
+                    self._err_file, maxBytes=64*1024, backupCount=2)
+                self._svc_err_logger.addHandler(handler)
+        except IOError:
+            self.logger.log("Failed to open trace file %s" % self._err_file)
 
     def post_init(self, vnc_lib, args=None):
         # api server
@@ -363,8 +359,12 @@ class SvcMonitor(object):
     def _delmsg_virtual_machine_interface_route_table(self, idents):
         rt_fq_str = idents['interface-route-table']
 
-        rt_obj = self._vnc_lib.interface_route_table_read(
-            fq_name_str=rt_fq_str)
+        try:
+            rt_obj = self._vnc_lib.interface_route_table_read(
+                fq_name_str=rt_fq_str)
+        except NoIdError:
+            return
+
         vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
         if vmi_list is None:
             self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
@@ -505,6 +505,9 @@ def launch_arc(monitor, ssrc_mapc):
             pollreq = PollRequest(arc_mapc.get_session_id())
             result = arc_mapc.call('poll', pollreq)
             monitor.process_poll_result(result)
+        except exceptions.InvalidSessionID:
+            cgitb_error_log(monitor)
+            return
         except Exception as e:
             if type(e) == socket.error:
                 time.sleep(3)
@@ -512,9 +515,10 @@ def launch_arc(monitor, ssrc_mapc):
                 cgitb_error_log(monitor)
 
 def launch_ssrc(monitor):
-    ssrc_mapc = ssrc_initialize(monitor._args)
-    arc_glet = gevent.spawn(launch_arc, monitor, ssrc_mapc)
-    arc_glet.join()
+    while True:
+        ssrc_mapc = ssrc_initialize(monitor._args)
+        arc_glet = gevent.spawn(launch_arc, monitor, ssrc_mapc)
+        arc_glet.join()
 
 def timer_callback(monitor):
     si_list = monitor.db.service_instance_list()
@@ -535,10 +539,10 @@ def launch_timer(monitor):
             cgitb_error_log(monitor)
 
 def cgitb_error_log(monitor):
-    cgitb.Hook(format="text",
-               file=open(monitor._tmp_file, 'w')).handle(sys.exc_info())
-    fhandle = open(monitor._tmp_file)
-    monitor._svc_err_logger.error("%s" % fhandle.read())
+    tmp_file = cStringIO.StringIO()
+    cgitb.Hook(format="text", file=tmp_file).handle(sys.exc_info())
+    monitor._svc_err_logger.error("%s" % tmp_file.getvalue())
+    tmp_file.close()
 
 def parse_args(args_str):
     '''
@@ -559,6 +563,7 @@ def parse_args(args_str):
                          --log_level SYS_DEBUG
                          --log_category test
                          --log_file <stdout>
+                         --trace_file /var/log/contrail/svc-monitor.err
                          --use_syslog
                          --syslog_facility LOG_USER
                          --cluster_id <testbed-name>
@@ -570,7 +575,7 @@ def parse_args(args_str):
     # Turn off help, so we show all options in response to -h
     conf_parser = argparse.ArgumentParser(add_help=False)
 
-    conf_parser.add_argument("-c", "--conf_file",
+    conf_parser.add_argument("-c", "--conf_file", action='append',
                              help="Specify config file", metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
@@ -592,6 +597,7 @@ def parse_args(args_str):
         'log_level': SandeshLevel.SYS_DEBUG,
         'log_category': '',
         'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'trace_file': '/var/log/contrail/svc-monitor.err',
         'use_syslog': False,
         'syslog_facility': Sandesh._DEFAULT_SYSLOG_FACILITY,
         'region_name': None,
@@ -624,7 +630,7 @@ def parse_args(args_str):
 
     if args.conf_file:
         config = ConfigParser.SafeConfigParser()
-        config.read([args.conf_file])
+        config.read(args.conf_file)
         defaults.update(dict(config.items("DEFAULTS")))
         if ('SECURITY' in config.sections() and
                 'use_certs' in config.options('SECURITY')):
@@ -689,6 +695,8 @@ def parse_args(args_str):
         help="Category filter for local logging of sandesh messages")
     parser.add_argument("--log_file",
                         help="Filename for the logs to be written to")
+    parser.add_argument("--trace_file", help="Filename for the error "
+                        "backtraces to be written to")
     parser.add_argument("--use_syslog", action="store_true",
                         help="Use syslog for logging")
     parser.add_argument("--syslog_facility",

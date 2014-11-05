@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+#include "base/os.h"
 #include <vr_defs.h>
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
@@ -86,7 +87,7 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
     len += EthHdr(ptr + len, buf_len - len,
                   agent()->vhost_interface()->mac(),
                   MacAddress(pkt_info_->eth->ether_shost),
-                  ETHERTYPE_IP, intf->vlan_id());
+                  ETHERTYPE_IP, intf->tx_vlan_id());
 
     uint16_t ip_len = sizeof(struct ip) + sizeof(struct icmp) + data_len;
     len += IpHdr(ptr + len, buf_len - len, ip_len,
@@ -94,8 +95,8 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
             htonl(src_ip), IPPROTO_ICMP, 0, 16);
 
     char *icmp = ptr + len;
-    len += IcmpHdr(ptr + len, buf_len - len, ICMP_DEST_UNREACH,
-                   ICMP_FRAG_NEEDED, 0, pkt_info_->agent_hdr.mtu);
+    len += IcmpHdr(ptr + len, buf_len - len, ICMP_UNREACH,
+                   ICMP_UNREACH_NEEDFRAG, 0, pkt_info_->agent_hdr.mtu);
 
     if (pkt_info_->agent_hdr.flow_index != (uint32_t)-1) {
         // Its possible that user payload has gone thru NAT processing already.
@@ -108,12 +109,12 @@ bool IcmpErrorHandler::SendIcmpError(VmInterface *intf) {
         ip->ip_sum = Csum((uint16_t *)data, ip_hlen, 0);
         if (ip->ip_p == IPPROTO_UDP) {
             udphdr *udp = (udphdr *)(data + ip_hlen);
-            udp->source = ntohs(key.src_port);
-            udp->dest = ntohs(key.dst_port);
+            udp->uh_sport = ntohs(key.src_port);
+            udp->uh_dport = ntohs(key.dst_port);
         } else if (ip->ip_p == IPPROTO_TCP) {
             tcphdr *tcp = (tcphdr *)(data + ip_hlen);
-            tcp->source = ntohs(key.src_port);
-            tcp->dest = ntohs(key.dst_port);
+            tcp->th_sport = ntohs(key.src_port);
+            tcp->th_dport = ntohs(key.dst_port);
         }
     }
     memcpy(ptr + len, data, data_len);

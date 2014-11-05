@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <net/if.h>
@@ -37,8 +38,8 @@
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <controller/controller_export.h> 
-#include <ksync/ksync_sock_user.h> 
+#include <controller/controller_export.h>
+#include <ksync/ksync_sock_user.h>
 #include <boost/assign/list_of.hpp>
 
 using namespace boost::assign;
@@ -168,8 +169,8 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
     VmInterface::Add(Agent::GetInstance()->interface_table(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
                      MakeUuid(kProjectUuid),
-                     VmInterface::kInvalidVlanId, Agent::NullString(), 
-                     Ip6Address());
+                     VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
+                     Agent::NullString(), Ip6Address());
 }
 
 static void NovaDel(int id) {

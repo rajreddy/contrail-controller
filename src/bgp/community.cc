@@ -137,6 +137,17 @@ void ExtCommunity::RemoveSGID() {
     }
 }
 
+void ExtCommunity::RemoveSiteOfOrigin() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_site_of_origin(*it)) {
+            it = communities_.erase(it);
+        } else {
+            it++;
+        }
+    }
+}
+
 void ExtCommunity::RemoveOriginVn() {
     for (ExtCommunityList::iterator it = communities_.begin();
          it != communities_.end(); ) {
@@ -166,13 +177,15 @@ std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
         if (!ExtCommunity::is_tunnel_encap(*iter))
             continue;
         TunnelEncap encap(*iter);
-        TunnelEncapType::Encap id = encap.tunnel_encap();
-        if (id == TunnelEncapType::UNSPEC)
+        if (encap.tunnel_encap() == TunnelEncapType::UNSPEC)
             continue;
-        encap_list.push_back(TunnelEncapType::TunnelEncapToString(id));
+        encap_list.push_back(encap.ToXmppString());
     }
 
     std::sort(encap_list.begin(), encap_list.end());
+    std::vector<std::string>::iterator encap_iter =
+        std::unique(encap_list.begin(), encap_list.end());
+    encap_list.erase(encap_iter, encap_list.end());
     return encap_list;
 }
 
@@ -239,6 +252,34 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src
 
     clone->RemoveSGID();
     clone->Append(sgid_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::RemoveSiteOfOriginAndLocate(
+        const ExtCommunity *src) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSiteOfOrigin();
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceSiteOfOriginAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &soo) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveSiteOfOrigin();
+    clone->Append(soo);
     return Locate(clone);
 }
 

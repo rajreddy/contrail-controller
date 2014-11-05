@@ -94,9 +94,8 @@ public:
         return is_default_;
     }
 
-    const std::string &name() const {
-        return name_;
-    }
+    const std::string &name() const { return name_; }
+    const std::string GetVirtualNetworkName() const;
 
     const BgpInstanceConfig *config() const { return config_; }
     const std::string virtual_network() const;
@@ -107,6 +106,7 @@ public:
     RoutingInstanceInfo GetDataCollection(const char *operation);
 
     BgpServer *server();
+    const BgpServer *server() const;
 
     // Remove import and export route target
     // and Leave corresponding RtGroup
@@ -247,6 +247,7 @@ public:
 
     size_t count() const { return instances_.count(); }
     BgpServer *server() { return server_; }
+    const BgpServer *server() const { return server_; }
     LifetimeActor *deleter();
 
 private:

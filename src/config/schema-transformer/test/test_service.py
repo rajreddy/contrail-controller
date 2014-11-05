@@ -11,7 +11,10 @@ import test_common
 import test_case
 
 from vnc_api.vnc_api import *
-import to_bgp
+try:
+    import to_bgp
+except ImportError:
+    from schema_transformer import to_bgp
 
 from time import sleep
 
@@ -43,6 +46,35 @@ def retries(max_tries, delay=1, backoff=2, exceptions=(Exception,), hook=None):
 
 
 class TestPolicy(test_case.STTestCase):
+
+    @retries(5, hook=retry_exc_handler)
+    def check_service_chain_prefix_match(self, fq_name, prefix):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        sci = ri.get_service_chain_information()
+        if sci is None:
+            print "retrying ... ", test_common.lineno()
+            raise NoIdError
+        self.assertEqual(sci.prefix[0], prefix)
+
+    @retries(5, hook=retry_exc_handler)
+    def check_ri_rt_state_vn_policy(self, fq_name, to_fq_name, expect_to_find):
+        ri = self._vnc_lib.routing_instance_read(fq_name)
+        rt_refs = ri.get_route_target_refs()
+        if not rt_refs:
+            print "retrying ... ", test_common.lineno()
+            raise NoIdError
+
+        found = False
+        for rt_ref in rt_refs:
+            rt_obj = self._vnc_lib.route_target_read(id=rt_ref['uuid'])
+            ri_refs = rt_obj.get_routing_instance_back_refs()
+            for ri_ref in ri_refs:
+                if ri_ref['to'] == to_fq_name:
+                    found = True
+                    break
+            if found == True:
+                break
+        self.assertTrue(found == expect_to_find)
 
     @retries(5, hook=retry_exc_handler)
     def check_ri_state_vn_policy(self, fq_name, to_fq_name):
@@ -118,7 +150,6 @@ class TestPolicy(test_case.STTestCase):
         vn1_uuid = self._vnc_lib.virtual_network_create(vn1_obj)
         vn2_uuid = self._vnc_lib.virtual_network_create(vn2_obj)
 
-        #import pdb; pdb.set_trace()
         for obj in [vn1_obj, vn2_obj]:
             ident_name = self.get_obj_imid(obj)
             gevent.sleep(2)
@@ -202,13 +233,8 @@ class TestPolicy(test_case.STTestCase):
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
 
-        while True:
-            gevent.sleep(2)
-            if ('contrail:connection contrail:routing-instance:default-domain:default-project:vn2:vn2' in
-                FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn1:vn1']['links']):
-                print "retrying ... ", test_common.lineno()
-                continue
-            break
+        expr ="('contrail:connection contrail:routing-instance:default-domain:default-project:vn2:vn2' in FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn1:vn1']['links'])"
+        self.assertTill(expr)
         np1.network_policy_entries.policy_rule[0].action_list.simple_action = 'pass'
         np1.set_network_policy_entries(np1.network_policy_entries)
         self._vnc_lib.network_policy_update(np1)
@@ -216,13 +242,8 @@ class TestPolicy(test_case.STTestCase):
         np2.set_network_policy_entries(np2.network_policy_entries)
         self._vnc_lib.network_policy_update(np2)
 
-        while True:
-            gevent.sleep(2)
-            if ('contrail:connection contrail:routing-instance:default-domain:default-project:vn1:vn1' in
-                FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn2:vn2']['links']):
-                print "retrying ... ", test_common.lineno()
-                continue
-            break
+        expr = "('contrail:connection contrail:routing-instance:default-domain:default-project:vn1:vn1' in FakeIfmapClient._graph['contrail:routing-instance:default-domain:default-project:vn2:vn2']['links'])"
+        self.assertTill(expr)
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn1_obj)
@@ -301,26 +322,16 @@ class TestPolicy(test_case.STTestCase):
         vn3_obj.del_network_policy(np2)
         self._vnc_lib.virtual_network_update(vn3_obj)
 
-        while True:
-            try:
-                acl = self._vnc_lib.access_control_list_read(
+        @retries(5, hook=retry_exc_handler)
+        def _match_acl_rule():
+            acl = self._vnc_lib.access_control_list_read(
                     fq_name=[u'default-domain', u'default-project',
                              'vn1', 'vn1'])
-            except NoIdError:
-                gevent.sleep(2)
-                print "retrying ... ", test_common.lineno()
-                continue
-            found = False
             for rule in acl.get_access_control_list_entries().get_acl_rule():
                 if rule.match_condition.dst_address.virtual_network == vn3_obj.get_fq_name_str():
-                    gevent.sleep(1)
-                    print "retrying ... ", test_common.lineno()
-                    found = True
-                    break
-            if not found:
-                break
-        # end while True
+                    raise Exception("ACL rule still present")
 
+        _match_acl_rule()
 
         vn1_obj.del_network_policy(np1)
         vn2_obj.del_network_policy(np2)
@@ -376,36 +387,25 @@ class TestPolicy(test_case.STTestCase):
             self.assertTrue(False)
 
         try:
-            self.check_ri_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
-                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name])
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
         except NoIdError, e:
             print "failed : routing instance state is not correct... ", test_common.lineno()
             self.assertTrue(False)
 
-        while True:
-            try:
-                test_common.FakeApiConfigLog._print()
-                ri = self._vnc_lib.routing_instance_read(
-                    fq_name=[u'default-domain', u'default-project', u'vn2', sc_ri_name])
-            except NoIdError:
-                gevent.sleep(2)
-                print "retrying ... ", test_common.lineno()
-                continue
-            ri_refs = ri.get_routing_instance_refs()
-            if ri_refs:
-                self.assertEqual(
-                    ri_refs[0]['to'],
-                    [u'default-domain', u'default-project', u'vn2', u'vn2'])
-                sci = ri.get_service_chain_information()
-                if sci is None:
-                    print "retrying ... ", test_common.lineno()
-                    gevent.sleep(2)
-                    continue
-                self.assertEqual(sci.prefix[0], '10.0.0.0/24')
-                break
-            print "retrying ... ", test_common.lineno()
-            gevent.sleep(2)
-        # end while True
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        try:
+            self.check_service_chain_prefix_match(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       prefix='10.0.0.0/24')
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
 
         vn1_obj.del_network_policy(np)
         vn2_obj.del_network_policy(np)
@@ -456,67 +456,53 @@ class TestPolicy(test_case.STTestCase):
         rt.set_routes(routes)
         self._vnc_lib.route_table_update(rt)
 
-        while 1:
-            gevent.sleep(2)
+        @retries(5, hook=retry_exc_handler)
+        def _match_route_table():
             lvn = self._vnc_lib.virtual_network_read(id=lvn.uuid)
-            try:
-                sc = [x for x in to_bgp.ServiceChain]
-                if len(sc) == 0:
-                    print "retrying ... ", test_common.lineno()
-                    continue
+            sc = [x for x in to_bgp.ServiceChain]
+            if len(sc) == 0:
+                raise Exception("sc has 0 len")
 
-                sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
-                lri = self._vnc_lib.routing_instance_read(
-                    fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
-                sr = lri.get_static_route_entries()
-                if sr is None:
-                    print "retrying ... ", test_common.lineno()
-                    continue
-                route = sr.route[0]
-                self.assertEqual(route.prefix, "0.0.0.0/0")
-                self.assertEqual(route.next_hop, "10.0.0.253")
-            except NoIdError:
-                print "retrying ... ", test_common.lineno()
-                continue
+            sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+            lri = self._vnc_lib.routing_instance_read(
+                fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
+            sr = lri.get_static_route_entries()
+            if sr is None:
+                raise Exception("sr is None")
+            route = sr.route[0]
+            self.assertEqual(route.prefix, "0.0.0.0/0")
+            self.assertEqual(route.next_hop, "10.0.0.253")
 
-            try:
-                ri100 = self._vnc_lib.routing_instance_read(
-                    fq_name=[
-                        'default-domain', 'default-project', 'vn100', 'vn100'])
-                rt100 = ri100.get_route_target_refs()[0]['to']
-                found = False
-                for rt_ref in lri.get_route_target_refs() or []:
-                    if rt100 == rt_ref['to']:
-                        found = True
-                        break
-                self.assertEqual(found, True)
-            except NoIdError:
-                print "retrying ... ", test_common.lineno()
-                continue
-            break
-        # end while
+            ri100 = self._vnc_lib.routing_instance_read(
+                fq_name=[
+                    'default-domain', 'default-project', 'vn100', 'vn100'])
+            rt100 = ri100.get_route_target_refs()[0]['to']
+            for rt_ref in lri.get_route_target_refs() or []:
+                if rt100 == rt_ref['to']:
+                    return
+            raise Exception("rt100 route-target ref not found")
+
+        _match_route_table()
 
         routes.set_route([])
         rt.set_routes(route)
         self._vnc_lib.route_table_update(rt)
 
-        while 1:
+        @retries(5, hook=retry_exc_handler)
+        def _match_route_table_cleanup():
             lri = self._vnc_lib.routing_instance_read(
                 fq_name=['default-domain', 'default-project', 'lvn', sc_ri_name])
             sr = lri.get_static_route_entries()
             if sr and sr.route:
-                gevent.sleep(2)
-                print "retrying ... ", test_common.lineno()
-                continue
+                raise Exception("sr has route")
             ri = self._vnc_lib.routing_instance_read(
                 fq_name=['default-domain', 'default-project', 'lvn', 'lvn'])
             rt_refs = ri.get_route_target_refs()
             for rt_ref in ri.get_route_target_refs() or []:
                 if rt100 == rt_ref['to']:
-                    print "retrying ... ", test_common.lineno()
-                    continue
-            break
-        # end while
+                    raise Exception("rt100 route-target ref found")
+
+        _match_route_table_cleanup()
 
         self._vnc_lib.virtual_network_delete(
             fq_name=['default-domain', 'default-project', 'vn100'])
@@ -622,6 +608,190 @@ class TestPolicy(test_case.STTestCase):
         self._vnc_lib.virtual_network_delete(
             fq_name=['default-domain', 'default-project', 'vn1'])
 
+    # test st restart while service chain is configured
+    def test_st_restart_service_chain_delete(self):
+        # create  vn1
+        vn1_obj = VirtualNetwork('vn1')
+        ipam_obj = NetworkIpam('ipam1')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
+        self._vnc_lib.virtual_network_create(vn1_obj)
+
+        # create vn2
+        vn2_obj = VirtualNetwork('vn2')
+        ipam_obj = NetworkIpam('ipam2')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("20.0.0.0", 24))]))
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        np = self.create_network_policy(vn1_obj, vn2_obj, ["s1"])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.clear_pending_updates()
+        vn2_obj.clear_pending_updates()
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        try:
+            sc = self.wait_to_get_sc()
+            sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+        except Exception, e:
+            print "failed: unable to fetch to_bgp.service_chain"
+            self.assertTrue(False)
+
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        # stop st
+        self._st_greenlet.kill()
+        gevent.sleep(5)
+
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        try:
+            self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+
+        except Exception, e:
+            print "failed : ri refs are still present in routing instance [vn1]... ", test_common.lineno()
+            self.assertTrue(False)
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+
+        try:
+            self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+
+        except Exception, e:
+            print "failed : vn1 is still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
+
+        # start st on a free port
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self._api_server_ip, self._api_server_port)
+        gevent.sleep(4)
+
+        #check if all ri's  are deleted
+        try:
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', sc_ri_name])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name])
+        except Exception, e:
+            print "failed : ri instances are still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
+    #end
+
+    # test service chain configuration while st is restarted
+    def test_st_restart_service_chain(self):
+        # create  vn1
+        vn1_obj = VirtualNetwork('vn1')
+        ipam_obj = NetworkIpam('ipam1')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn1_obj.add_network_ipam(ipam_obj, VnSubnetsType(
+            [IpamSubnetType(SubnetType("10.0.0.0", 24))]))
+        self._vnc_lib.virtual_network_create(vn1_obj)
+
+        # create vn2
+        vn2_obj = VirtualNetwork('vn2')
+        ipam_obj = NetworkIpam('ipam2')
+        self._vnc_lib.network_ipam_create(ipam_obj)
+        vn2_obj.add_network_ipam(ipam_obj, VnSubnetsType([IpamSubnetType(SubnetType("20.0.0.0", 24))]))
+        self._vnc_lib.virtual_network_create(vn2_obj)
+
+        np = self.create_network_policy(vn1_obj, vn2_obj, ["s1"])
+        seq = SequenceType(1, 1)
+        vnp = VirtualNetworkPolicyType(seq)
+
+        vn1_obj.clear_pending_updates()
+        vn2_obj.clear_pending_updates()
+        vn1_obj.set_network_policy(np, vnp)
+        vn2_obj.set_network_policy(np, vnp)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+
+        # stop st and wait for sometime
+        self._st_greenlet.kill()
+        gevent.sleep(5)
+
+        # start st on a free port
+        self._st_greenlet = gevent.spawn(test_common.launch_schema_transformer,
+            self._api_server_ip, self._api_server_port)
+        gevent.sleep(4)
+
+        #check service chain state
+        try:
+            sc = self.wait_to_get_sc()
+            sc_ri_name = 'service-'+sc[0]+'-default-domain_default-project_s1'
+        except Exception, e:
+            print "failed: unable to fetch to_bgp.service_chain"
+            self.assertTrue(False)
+
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn1', sc_ri_name], expect_to_find=True)
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        try:
+            self.check_ri_rt_state_vn_policy(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name],
+                                       to_fq_name=[u'default-domain', u'default-project', u'vn2', u'vn2'], expect_to_find=True)
+        except NoIdError, e:
+            print "failed : routing instance state is not correct... ", test_common.lineno()
+            self.assertTrue(False)
+
+        #cleanup
+        vn1_obj.del_network_policy(np)
+        vn2_obj.del_network_policy(np)
+        self._vnc_lib.virtual_network_update(vn1_obj)
+        self._vnc_lib.virtual_network_update(vn2_obj)
+        try:
+            self.check_ri_refs_are_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+
+        except Exception, e:
+            print "failed : ri refs are still present in routing instance [vn1]... ", test_common.lineno()
+            self.assertTrue(False)
+
+        self.delete_network_policy(np)
+        self._vnc_lib.virtual_network_delete(fq_name=vn1_obj.get_fq_name())
+        self._vnc_lib.virtual_network_delete(fq_name=vn2_obj.get_fq_name())
+
+        try:
+            self.check_vn_is_deleted(uuid=vn1_obj.uuid)
+
+        except Exception, e:
+            print "failed : vn1 is still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
+
+
+        #check if all ri's  are deleted
+        try:
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', 'vn1'])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', 'vn2'])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn1', sc_ri_name])
+            self.check_ri_is_deleted(fq_name=[u'default-domain', u'default-project', 'vn2', sc_ri_name])
+        except Exception, e:
+            print "failed : ri instances are still present in api server ... ", test_common.lineno()
+            self.assertTrue(False)
     #end
 
 # end class TestRouteTable

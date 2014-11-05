@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 #include <base/logging.h>
 #include <io/event_manager.h>
@@ -16,7 +17,7 @@
 #include "oper/mirror_table.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
-#include <boost/assign/list_of.hpp> 
+#include <boost/assign/list_of.hpp>
 
 using namespace boost::assign;
 std::string eth_itf;
@@ -40,7 +41,8 @@ protected:
         client->Reset();
         nh_count_ = agent_->nexthop_table()->Size();
         PhysicalInterface::CreateReq(agent_->interface_table(),
-                                eth_itf, agent_->fabric_vrf_name(), false);
+                                eth_itf, agent_->fabric_vrf_name(),
+                                PhysicalInterface::FABRIC);
         fabric_gw_ip_ = Ip4Address::from_string("10.1.1.254");
         uint16_t sport = 10000;
         unsigned long ip = 0x0a010102;

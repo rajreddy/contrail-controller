@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <netinet/icmp6.h>
 
 #include <vr_defs.h>
@@ -157,7 +158,7 @@ uint16_t Icmpv6Handler::FillRouterAdvertisement(uint8_t *buf, uint8_t *src,
     agent()->vrrp_mac().ToArray(buf + offset + 2, ETHER_ADDR_LEN);
 
     // add prefix information
-    offset += sizeof(nd_opt_hdr) + ETH_ALEN;
+    offset += sizeof(nd_opt_hdr) + ETHER_ADDR_LEN;
     nd_opt_prefix_info *prefix_info = (nd_opt_prefix_info *)(buf + offset);
     prefix_info->nd_opt_pi_type = ND_OPT_PREFIX_INFORMATION;
     prefix_info->nd_opt_pi_len = 4;
@@ -191,23 +192,27 @@ void Icmpv6Handler::SendPingResponse() {
     icmp_->icmp6_cksum =
         Icmpv6Csum(pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                    pkt_info_->ip_saddr.to_v6().to_bytes().data(),
-                   icmp_, pkt_info_->ip6->ip6_plen);
+                   icmp_, ntohs(pkt_info_->ip6->ip6_plen));
     SendIcmpv6Response(pkt_info_->GetAgentHdr().ifindex, pkt_info_->vrf,
                        pkt_info_->ip_daddr.to_v6().to_bytes().data(),
                        pkt_info_->ip_saddr.to_v6().to_bytes().data(),
                        MacAddress(pkt_info_->eth->ether_shost),
-                       pkt_info_->ip6->ip6_plen);
+                       ntohs(pkt_info_->ip6->ip6_plen));
 }
 
 void Icmpv6Handler::SendIcmpv6Response(uint16_t ifindex, uint16_t vrfindex,
                                        uint8_t *src_ip, uint8_t *dest_ip,
                                        const MacAddress &dest_mac,
                                        uint16_t len) {
-    Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
-    len += sizeof(ip6_hdr);
-    EthHdr(agent()->vrrp_mac(), dest_mac, ETHERTYPE_IPV6);
-    len += sizeof(struct ether_header);
-    pkt_info_->set_len(len);
 
+    char *buff = (char *)pkt_info_->eth;
+    uint16_t buff_len = pkt_info_->packet_buffer()->data_len();
+
+    uint16_t eth_len = EthHdr(buff, buff_len, ifindex, agent()->vrrp_mac(),
+                              dest_mac, ETHERTYPE_IPV6);
+
+    pkt_info_->ip6 = (struct ip6_hdr *)(buff + eth_len);
+    Ip6Hdr(pkt_info_->ip6, len, IPV6_ICMP_NEXT_HEADER, 255, src_ip, dest_ip);
+    pkt_info_->set_len(len + sizeof(ip6_hdr) + eth_len);
     Send(ifindex, vrfindex, AgentHdr::TX_SWITCH, PktHandler::ICMPV6);
 }

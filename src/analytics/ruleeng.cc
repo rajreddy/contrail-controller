@@ -122,7 +122,7 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const VizMsg *rmsg
     uint64_t timestamp(header.get_Timestamp());
     for (it = keymap.begin(); it != keymap.end(); it++) {
         db->ObjectTableInsert(it->first, it->second, 
-            timestamp, rmsg->unm);
+            timestamp, rmsg->unm, rmsg);
     }
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
@@ -163,6 +163,10 @@ static bool ParseTags(const string& tstr, const string& node,
         vector<pair<string,string> > * doubletag) {
     size_t pos;
     size_t npos = 0;
+
+    // If the tags string is empty, there's nothing to parse
+    if (tstr.empty()) return true;
+
     do {
         if (npos)
             pos = npos+1;

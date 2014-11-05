@@ -14,6 +14,7 @@ struct BgpProtoPrefix;
 class IPeer;
 class BgpTable;
 class ShowRoute;
+class ShowRouteBrief;
 
 class BgpRoute : public Route {
 public:
@@ -63,7 +64,9 @@ public:
     size_t count() const;
 
     // Fill info needed for introspect
-    void FillRouteInfo(BgpTable *table, ShowRoute *show_route);
+    void FillRouteInfo(const BgpTable *table, ShowRouteBrief *show_route) const;
+    void FillRouteInfo(const BgpTable *table, ShowRoute *show_route) const;
+
 private:
 
     DISALLOW_COPY_AND_ASSIGN(BgpRoute);

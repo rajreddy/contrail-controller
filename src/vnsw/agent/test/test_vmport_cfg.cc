@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include <boost/assign/list_of.hpp>
 
 #include <cfg/cfg_init.h>
@@ -53,13 +54,16 @@ void DoInterfaceSandesh(std::string name) {
 }
 
 class CfgTest : public ::testing::Test {
+public:
     virtual void SetUp() {
+        agent_ = Agent::GetInstance();
     }
 
     virtual void TearDown() {
         EXPECT_EQ(0U, Agent::GetInstance()->acl_table()->Size());
     }
 
+    Agent *agent_;
 };
 
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
@@ -93,7 +97,8 @@ TEST_F(CfgTest, AddDelExport) {
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
     data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
                "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
-               VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
+               VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
+               CfgIntEntry::CfgIntVMPort, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -106,7 +111,8 @@ TEST_F(CfgTest, AddDelExport) {
     ip = Ip4Address::from_string("1.1.1.1", ec);
     data1->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
                 "vnet1", ip, Ip6Address(), "00:00:00:01:01:01", "",
-                VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
+                VmInterface::kInvalidVlanId, VmInterface::kInvalidVlanId,
+                CfgIntEntry::CfgIntVMPort, 0);
     req.key.reset(key1);
     req.data.reset(data1);
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1187,14 +1193,27 @@ TEST_F(CfgTest, Basic_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 5, 5},
     };
 
+    PhysicalInterfaceKey key(eth_intf);
+    PhysicalInterface *phy_intf = NULL;
+
     client->Reset();
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
-                            eth_intf, vrf_name, false);
+                            eth_intf, vrf_name, PhysicalInterface::FABRIC);
     client->WaitForIdle();
+    phy_intf = static_cast<PhysicalInterface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(phy_intf == NULL);
+
     PhysicalInterface::CreateReq(Agent::GetInstance()->interface_table(),
                             eth_intf, Agent::GetInstance()->fabric_vrf_name(),
-                            false);
+                            PhysicalInterface::FABRIC);
     client->WaitForIdle();
+
+    phy_intf = static_cast<PhysicalInterface *>
+        (agent_->interface_table()->FindActiveEntry(&key));
+    EXPECT_TRUE(phy_intf->persistent() == false);
+    EXPECT_TRUE(phy_intf->subtype() == PhysicalInterface::FABRIC);
+
     InetInterface::CreateReq(Agent::GetInstance()->interface_table(),
                              "vhost10", InetInterface::VHOST,
                              Agent::GetInstance()->fabric_vrf_name(),

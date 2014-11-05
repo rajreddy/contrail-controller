@@ -2,7 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  sact*/
 
-#include <netinet/ether.h>
+#include "base/os.h"
+#include <sys/types.h>
+#include <net/ethernet.h>
 #include <boost/uuid/uuid_io.hpp>
 #include <tbb/mutex.h>
 
@@ -110,10 +112,11 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     return intf->Resync(vm_data);
 }
 
-void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
+bool InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     intf->Delete();
     intf->SendTrace(Interface::DELETE);
+    return true;
 }
 
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {
@@ -279,7 +282,12 @@ void Interface::GetOsParams(Agent *agent) {
     }
     close(fd);
 
+#if defined(__linux__)
     mac_ = ifr.ifr_hwaddr;
+#elif defined(__FreeBSD__)
+    mac_ = ifr.ifr_addr;
+#endif
+
     if (os_index_ == kInvalidIndex) {
         int idx = if_nametoindex(name_.c_str());
         if (idx)
@@ -369,9 +377,11 @@ void PacketInterface::Delete(InterfaceTable *table, const std::string &ifname) {
 // Ethernet Interface routines
 /////////////////////////////////////////////////////////////////////////////
 PhysicalInterface::PhysicalInterface(const std::string &name, VrfEntry *vrf,
-                                     bool persistent) :
+                                     SubType subtype) :
     Interface(Interface::PHYSICAL, nil_uuid(), name, vrf),
-    persistent_(persistent) {
+    persistent_(false), subtype_(subtype) {
+    if (subtype_ == VMWARE)
+        persistent_ = true;
 }
 
 PhysicalInterface::~PhysicalInterface() {
@@ -390,18 +400,18 @@ DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
 
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                                  const string &vrf_name, bool persistent) {
+                                  const string &vrf_name, SubType subtype) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
     table->Enqueue(&req);
 }
 
 void PhysicalInterface::Create(InterfaceTable *table, const string &ifname,
-                               const string &vrf_name, bool persistent) {
+                               const string &vrf_name, SubType subtype) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
-    req.data.reset(new PhysicalInterfaceData(vrf_name, persistent));
+    req.data.reset(new PhysicalInterfaceData(vrf_name, subtype));
     table->Process(req);
 }
 
@@ -429,7 +439,7 @@ PhysicalInterfaceKey::~PhysicalInterfaceKey() {
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table) const {
-    return new PhysicalInterface(name_, NULL, false);
+    return new PhysicalInterface(name_, NULL, PhysicalInterface::INVALID);
 }
 
 Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
@@ -443,7 +453,38 @@ Interface *PhysicalInterfaceKey::AllocEntry(const InterfaceTable *table,
     const PhysicalInterfaceData *phy_data =
         static_cast<const PhysicalInterfaceData *>(data);
 
-    return new PhysicalInterface(name_, vrf, phy_data->persistent_);
+    return new PhysicalInterface(name_, vrf, phy_data->subtype_);
+}
+
+void PhysicalInterface::PostAdd() {
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+
+    if (subtype_ != VMWARE || table->agent()->test_mode()) {
+        return;
+    }
+
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+    if (ioctl(fd, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> setting promiscuous flag for interface <" << name_ << ">");
+        close(fd);
+        return;
+    }
+
+    ifr.ifr_flags |= IFF_PROMISC;
+    if (ioctl(fd, SIOCSIFFLAGS, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> setting promiscuous flag for interface <" << name_ << ">");
+        close(fd);
+        return;
+    }
+
+    close(fd);
 }
 
 InterfaceKey *PhysicalInterfaceKey::Clone() const {
@@ -451,8 +492,8 @@ InterfaceKey *PhysicalInterfaceKey::Clone() const {
 }
 
 PhysicalInterfaceData::PhysicalInterfaceData(const std::string &vrf_name,
-                                             bool persistent)
-    : InterfaceData(), persistent_(persistent) {
+                                             PhysicalInterface::SubType subtype)
+    : InterfaceData(), subtype_(subtype) {
     EthInit(vrf_name);
 }
 
@@ -759,6 +800,13 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_sg_uuid_list(intf_sg_uuid_l);
         data.set_vm_name(vintf->vm_name());
         data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
+        data.set_local_preference(vintf->local_preference());
+
+        data.set_tx_vlan_id(vintf->tx_vlan_id());
+        data.set_rx_vlan_id(vintf->rx_vlan_id());
+        if (vintf->parent()) {
+            data.set_parent_interface(vintf->parent()->name());
+        }
         break;
     }
     case Interface::INET:

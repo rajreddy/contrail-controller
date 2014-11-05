@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/os.h"
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
@@ -39,7 +40,7 @@
 
 #include "xml/xml_pugi.h"
 
-#include "controller/controller_ifmap.h" 
+#include "controller/controller_ifmap.h"
 
 using namespace pugi;
 const char *init_file_local;
@@ -156,7 +157,7 @@ protected:
         IpAddress ip = Ip4Address::from_string(addr, ec);
         data->Init(nil_uuid(), nil_uuid(), nil_uuid(), name, ip.to_v4(),
                    Ip6Address(), mac, "", VmInterface::kInvalidVlanId,
-                   CfgIntEntry::CfgIntVMPort, 0);
+                   VmInterface::kInvalidVlanId, CfgIntEntry::CfgIntVMPort, 0);
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

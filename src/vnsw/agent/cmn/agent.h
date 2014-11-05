@@ -7,7 +7,7 @@
 
 #include <vector>
 #include <stdint.h>
-#include <netinet/ether.h>
+#include <net/ethernet.h>
 #include <boost/intrusive_ptr.hpp>
 #include <cmn/agent_cmn.h>
 #include <base/connection_info.h>
@@ -696,6 +696,9 @@ public:
     AgentParam *params() const { return params_; }
 
     bool isXenMode();
+    // Agent param accessor functions
+    bool isVmwareMode() const;
+    bool isVmwareVcenterMode() const;
     void SetAgentTaskPolicy();
     void CopyConfig(AgentParam *params);
 
