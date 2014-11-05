@@ -11,6 +11,7 @@ subdirs = [
     'pugixml',
     'rapidjson',
     'thrift',
+    'openvswitch',
 ]
 
 (distname, version, _) = platform.dist()
