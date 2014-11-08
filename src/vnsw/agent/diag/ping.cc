@@ -18,12 +18,13 @@
 
 using namespace boost::posix_time;
 
-Ping::Ping(const PingReq *ping_req, DiagTable *diag_table):
-    DiagEntry(ping_req->get_source_ip(), ping_req->get_dest_ip(),
-              ping_req->get_protocol(), ping_req->get_source_port(),
-              ping_req->get_dest_port(), ping_req->get_vrf_name(),
-              ping_req->get_interval() * 100, ping_req->get_count(), diag_table),
-    data_len_(ping_req->get_packet_size()), context_(ping_req->context()),
+Ping::Ping(const PingReq *ping_req,DiagTable *diag_table):
+    DiagEntry(ping_req->get_interval() * 100, ping_req->get_count(),diag_table),
+    sip_(Ip4Address::from_string(ping_req->get_source_ip(), ec_)),
+    dip_(Ip4Address::from_string(ping_req->get_dest_ip(), ec_)),
+    proto_(ping_req->get_protocol()), sport_(ping_req->get_source_port()),
+    dport_(ping_req->get_dest_port()), data_len_(ping_req->get_packet_size()),
+    vrf_name_(ping_req->get_vrf_name()), context_(ping_req->context()),
     pkt_lost_count_(0) {
 
 }
@@ -34,7 +35,7 @@ Ping::~Ping() {
 void
 Ping::FillAgentHeader(AgentDiagPktData *ad) {
     ad->op_ = htonl(AgentDiagPktData::DIAG_REQUEST);
-    ad->key_ = htons(key_);
+    ad->key_ = htonl(key_);
     ad->seq_no_ = htonl(seq_no_);
     ad->rtt_ = microsec_clock::universal_time();
 }
@@ -59,7 +60,7 @@ Ping::CreateTcpPkt(Agent *agent) {
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
     pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(struct ip),
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
-                       IPPROTO_TCP, 0, 16);
+                       IPPROTO_TCP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac(),
                         agent->vrrp_mac(), ETHERTYPE_IP);
 
@@ -87,7 +88,7 @@ Ping::CreateUdpPkt(Agent *agent) {
                         dip_.to_ulong(), dport_);
     pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(struct ip),
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()),
-                       IPPROTO_UDP, 0, 16);
+                       IPPROTO_UDP);
     pkt_handler->EthHdr(agent->vhost_interface()->mac(),
                         agent->vrrp_mac(), ETHERTYPE_IP);
 
@@ -132,8 +133,7 @@ void Ping::SendRequest() {
     //Send request out
     pkt_handler->SetDiagChkSum();
     pkt_handler->pkt_info()->set_len(len_);
-    pkt_handler->Send(intf_id, vrf_id, AgentHdr::TX_ROUTE,
-                      CMD_PARAM_PACKET_CTRL, CMD_PARAM_1_DIAG, PktHandler::DIAG);
+    pkt_handler->Send(intf_id, vrf_id, AgentHdr::TX_ROUTE, PktHandler::DIAG);
     delete pkt_handler;
     return;
 }
@@ -187,7 +187,7 @@ void Ping::HandleReply(DiagPktHandler *handler) {
 void Ping::SendSummary() {
     PingSummaryResp *resp = new PingSummaryResp();
 
-    if (pkt_lost_count_ != GetMaxAttempts()) {
+    if (pkt_lost_count_ != count_) {
         //If we had some succesful replies, send in
         //average rtt for succesful ping requests
         avg_rtt_ = (avg_rtt_ / (seq_no_ - pkt_lost_count_));
@@ -216,7 +216,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    Ip4Address dip(Ip4Address::from_string(get_dest_ip(), ec));
+    Ip4Address dip(Ip4Address::from_string(get_source_ip(), ec));
     if (ec != 0) {
         err_str = "Invalid destination IP";
         goto error;
@@ -256,4 +256,7 @@ error:
     resp->set_context(context());
     resp->Response();
     return;
+}
+
+void Ping::PingInit() {
 }
