@@ -969,7 +969,7 @@ uint16_t DhcpHandler::FillDhcpResponse(const MacAddress &dest_mac,
     len += sizeof(udphdr);
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
     len += sizeof(struct ip);
-    IpHdr(len, src_ip, dest_ip, IPPROTO_UDP, 0, 16);
+    IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
 
     pkt_info_->set_len(len + eth_len);
     return pkt_info_->packet_buffer()->data_len();

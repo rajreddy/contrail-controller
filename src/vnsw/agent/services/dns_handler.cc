@@ -765,6 +765,7 @@ void DnsHandler::SendDnsResponse() {
                dest_ip, ntohs(in_pkt_info.transp.udp->uh_sport));
         data_len += sizeof(struct ip);
         IpHdr(data_len, src_ip, dest_ip, IPPROTO_UDP);
+
     } else {
         // IPv6 request
         Ip6Address src_ip = in_pkt_info.ip_daddr.to_v6();
