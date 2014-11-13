@@ -94,7 +94,7 @@ class LldpTable(SnmpTable):
         self.lldpRemoteSystemsData = {}
 
     def get_name(self):
-        return self.lldpLocalSystemData['lldpLocSysName']
+        return self.lldpLocalSystemData.get('lldpLocSysName', 'localhost')
 
     def py_obj(self):
         return {'lldpLocalSystemData':self.lldpLocalSystemData,
@@ -131,7 +131,7 @@ class LldpTable(SnmpTable):
             if x.iid == '0':
                 self.lldpLocalSystemData[x.tag] = self.normalize(x,
                         ('lldpLocChassisId', ), self.capabilities)
-            else:
+            elif x.iid:
                 if x.iid not in self.lldpLocalSystemData:
                     tr = x.iid.split('.')
                     self.lldpLocalSystemData['lldpLocManAddrEntry'] = {
@@ -150,6 +150,7 @@ class LldpTable(SnmpTable):
 
     def lldpRemoteSystemsData_translator(self, snmp_dict):
         for x in snmp_dict['vars']:
+          if x.iid:
             time, ifidx, nid, oid, xiid = self._to_time_ifidx_nid(x.iid)
             if xiid not in self.lldpRemoteSystemsData:
                 self.lldpRemoteSystemsData[xiid] = {

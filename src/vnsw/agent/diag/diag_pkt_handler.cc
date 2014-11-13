@@ -23,11 +23,11 @@ void DiagPktHandler::SetReply() {
 void DiagPktHandler::SetDiagChkSum() {
     switch(pkt_info_->ip->ip_p) {
         case IPPROTO_TCP:
-            pkt_info_->transp.tcp->check = 0xffff;
+            pkt_info_->transp.tcp->th_sum = 0xffff;
             break;
 
         case IPPROTO_UDP:
-            pkt_info_->transp.udp->check = 0xffff;
+            pkt_info_->transp.udp->uh_sum = 0xffff;
             break;
 
         case IPPROTO_ICMP:
