@@ -722,9 +722,6 @@ bool DhcpHandler::CreateRelayPacket() {
     len += sizeof(struct ip);
     IpHdr(len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP, 0, 16);
-    EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
-           MacAddress(in_pkt_info.eth->ether_dhost), ETHERTYPE_IP);
-    len += sizeof(struct ether_header);
 
     pkt_info_->set_len(len);
     return true;
@@ -798,9 +795,6 @@ bool DhcpHandler::CreateRelayResponsePacket() {
     len += sizeof(struct ip);
     IpHdr(len, htonl(agent()->router_id().to_ulong()),
           0xFFFFFFFF, IPPROTO_UDP, 0, 16);
-    EthHdr(agent()->vhost_interface()->mac(), MacAddress(dhcp->chaddr),
-           ETHERTYPE_IP);
-    len += sizeof(struct ether_header);
 
     pkt_info_->set_len(len);
     return true;
