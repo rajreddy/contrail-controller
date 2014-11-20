@@ -7,7 +7,6 @@ subdirs = [
     'gunit',
     'hiredis',
     'http_parser',
-    'libipfix',
     'pugixml',
     'rapidjson',
     'thrift',
