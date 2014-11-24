@@ -342,16 +342,30 @@ class VCenterMonitorTask implements Runnable {
             // Do Vmware and Vnc networks match?
             String vmwareVnUuid = vmwareItem.getKey();
             String vncVnUuid = vncItem.getKey();
-            if (!vmwareVnUuid.equals(vncVnUuid)) {
-                // Delete Vnc network
-                vncDB.DeleteVirtualNetwork(vncVnUuid);
-                vncItem = vncIter.hasNext() ? vncIter.next() : null;
-            } else {
+            Integer cmp = vmwareVnUuid.compareTo(vncVnUuid);
+            if (cmp == 0) {
                 // Sync
                 syncVirtualMachines(vncVnUuid, vmwareItem.getValue(),
                         vncItem.getValue());
                 // Advance
                 vncItem = vncIter.hasNext() ? vncIter.next() : null;
+                vmwareItem = vmwareIter.hasNext() ? vmwareIter.next() : null;
+            } else if (cmp > 0){
+                // Delete Vnc virtual network
+                vncDB.DeleteVirtualNetwork(vncVnUuid);
+                vncItem = vncIter.hasNext() ? vncIter.next() : null;
+            } else if (cmp < 0){
+                // Create VMWare virtual network in VNC
+                VmwareVirtualNetworkInfo vnInfo = vmwareItem.getValue();
+                SortedMap<String, VmwareVirtualMachineInfo> vmInfos = vnInfo.getVmInfo();
+                String subnetAddr = vnInfo.getSubnetAddress();
+                String subnetMask = vnInfo.getSubnetMask();
+                String gatewayAddr = vnInfo.getGatewayAddress();
+                String vmwareVnName = vnInfo.getName();
+                short isolatedVlanId = vnInfo.getIsolatedVlanId();
+                short primaryVlanId = vnInfo.getPrimaryVlanId();
+                vncDB.CreateVirtualNetwork(vmwareVnUuid, vmwareVnName, subnetAddr,
+                        subnetMask, gatewayAddr, isolatedVlanId, primaryVlanId, vmInfos);
                 vmwareItem = vmwareIter.hasNext() ? vmwareIter.next() : null;
             }
         }
@@ -381,7 +395,7 @@ class VCenterMonitorTask implements Runnable {
     public void run() {
         try {
             if (iteration == 0) {
-                // 30 sec timeout. Sync VN/VM/VMI/InstanceIp etc.
+                // 16 sec timeout. Sync VN/VM/VMI/InstanceIp etc.
                 syncVirtualNetworks();
 
                 // When syncVirtualNetwrorks is run the first time, it also does
@@ -393,7 +407,7 @@ class VCenterMonitorTask implements Runnable {
                 vncDB.vrouterAgentPeriodicConnectionCheck();
             }
             iteration++;
-            if (iteration == 16)
+            if (iteration == 8) // 16 sec for poll
                 iteration = 0;
         } catch (Exception e) {
             s_logger.error("Error while syncVirtualNetworks: " + e); 
